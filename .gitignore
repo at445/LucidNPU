@@ -1,0 +1,76 @@
+# =========================
+# 1. CMake & Build Output
+# =========================
+# Common build directories
+build/
+build-*/
+out/
+bin/
+lib/
+
+# CMake cache and auto-generated files
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# =========================
+# 2. C/C++ Build Artifacts
+# =========================
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# =========================
+# 3. Editor & IDE Configurations
+# =========================
+# VSCode (keep shared configs like launch.json/tasks.json if needed, ignore otherwise)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# CLion / IntelliJ
+.idea/
+cmake-build-*/
+
+# Vim / Emacs
+*.swp
+*~
+*.swo
+.netrwhist
+
+# =========================
+# 4. OS Specific Files
+# =========================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =========================
+# 5. MLIR / TableGen Generated Files
+# =========================
+# Usually generated in the build directory, but ignore them just in case they are generated in-source
+*.inc
+*.cpp.inc
+*.h.inc
