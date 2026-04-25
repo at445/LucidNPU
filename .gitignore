@@ -42,6 +42,7 @@ _deps/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.cache/
 
 # CLion / IntelliJ
 .idea/

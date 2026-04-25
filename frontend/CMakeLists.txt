@@ -1,15 +1,11 @@
-set(TARGET_NAME lucid-opt)
+set(TARGET_NAME lucid-c)
 
 set(${TARGET_NAME}_LIBS
-    MLIROptLib
-    MLIRIR
-    MLIRParser
-    MLIRPass
     MLIRSupport
 )
 
 add_llvm_executable(${TARGET_NAME}
-    tools/lucid-opt/lucid-opt.cpp
+    tools/lucid-c/lucid-c.cpp
 )
 
 llvm_update_compile_flags(${TARGET_NAME})
