@@ -17,6 +17,7 @@ sudo apt install -y build-essential clang lld ninja-build cmake git python3 ccac
 Compile the MLIR project first. This project is developed using the `llvmorg-19.1.0` version. We only need to build MLIR and Clang. Clone the LLVM repository and check out the correct tag:
 
 ```bash
+cd ~
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
 git checkout llvmorg-19.1.0
@@ -43,7 +44,7 @@ cmake --build build --target mlir-opt mlir-translate FileCheck -j$(nproc)
 After compiling, you can verify your build artifact with:
 
 ```bash
-./bin/mlir-opt --version
+./build/bin/mlir-opt --version
 ```
 
 ## 3. Compile LucidNPU
@@ -56,8 +57,8 @@ mkdir build && cd build
 
 # Configure the project, pointing to the MLIR and LLVM CMake directories
 cmake -G Ninja \
-  -DMLIR_DIR=[llvm_project_path]/build/lib/cmake/mlir \
-  -DLLVM_DIR=[llvm_project_path]/build/lib/cmake/llvm \
+  -DMLIR_DIR=~/llvm-project/build/lib/cmake/mlir \
+  -DLLVM_DIR=~/llvm-project/build/lib/cmake/llvm \
   ..
 
 # Build the project
