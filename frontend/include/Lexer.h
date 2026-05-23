@@ -22,7 +22,7 @@ namespace lucid_frontend {
 
 /// Structure definition a location in a file.
 struct Location {
-  std::shared_ptr<std::string> file; ///< filename.
+  llvm::StringRef file;              ///< filename.
   int line;                          ///< line number.
   int col;                           ///< column number.
 };
@@ -59,9 +59,8 @@ class Lexer {
 public:
   /// Create a lexer for the given filename. The filename is kept only for
   /// debugging purposes (attaching a location to a Token).
-  Lexer(std::string filename)
-      : lastLocation(
-            {std::make_shared<std::string>(std::move(filename)), 0, 0}) {}
+  Lexer(llvm::StringRef filename)
+      : lastLocation({filename, 0, 0}) {}
   virtual ~Lexer() = default;
 
   /// Look at the current token in the stream.
@@ -78,13 +77,13 @@ public:
   }
 
   /// Return the current identifier (prereq: getCurToken() == tok_identifier)
-  llvm::StringRef getId() {
+  llvm::StringRef getId() const {
     assert(curTok == tok_identifier);
     return identifierStr;
   }
 
   /// Return the current number (prereq: getCurToken() == tok_number)
-  double getValue() {
+  double getValue() const {
     assert(curTok == tok_number);
     return numVal;
   }
@@ -93,10 +92,10 @@ public:
   Location getLastLocation() { return lastLocation; }
 
   // Return the current line in the file.
-  int getLine() { return curLineNum; }
+  int getLine() const { return curLineNum; }
 
   // Return the current column in the file.
-  int getCol() { return curCol; }
+  int getCol() const { return curCol; }
 
 private:
   /// Delegate to a derived class fetching the next line. Returns an empty
@@ -210,8 +209,8 @@ private:
 /// A lexer implementation operating on a buffer in memory.
 class LexerBuffer final : public Lexer {
 public:
-  LexerBuffer(const char *begin, const char *end, std::string filename)
-      : Lexer(std::move(filename)), current(begin), end(end) {}
+  LexerBuffer(const char *begin, const char *end, llvm::StringRef filename)
+      : Lexer(filename), current(begin), end(end) {}
 
 private:
   /// Provide one line at a time to the Lexer, return an empty string when

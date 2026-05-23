@@ -5,7 +5,6 @@ set(${TARGET_NAME}_LIBS
 )
 
 add_llvm_executable(${TARGET_NAME}
-    lib/ASTDumper.cpp
     tools/lucid-c/lucid-c.cpp
 )
 
