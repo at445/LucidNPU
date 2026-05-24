@@ -213,6 +213,11 @@ private:
         return parseError<ExprAST>("<single arg>", "as argument to print()");
 
       return new (allocator) PrintExprAST(loc, args.front());
+    } else if (name == "transpose") {
+      if (args.size() != 1)
+        return parseError<ExprAST>("<single arg>", "as argument to print()");
+
+      return new (allocator) TransposeExprAST(loc, args.front());
     }
 
     // Call to a user-defined function

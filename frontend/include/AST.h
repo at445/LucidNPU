@@ -44,6 +44,7 @@ public:
     Expr_BinOp,
     Expr_Call,
     Expr_Print,
+    Expr_Transpose
   };
 
   ExprAST(ExprASTKind kind, Location location)
@@ -192,6 +193,20 @@ public:
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_Print; }
 };
 
+/// Expression class for builtin print calls.
+class TransposeExprAST : public ExprAST {
+  ExprAST * arg;
+
+public:
+  TransposeExprAST(Location loc, ExprAST* arg)
+      : ExprAST(Expr_Transpose, loc), arg(arg) {}
+
+  ExprAST *getArg() const { return arg; }
+
+  /// LLVM style RTTI
+  static bool classof(const ExprAST *c) { return c->getKind() == Expr_Transpose; }
+};
+
 /// This class represents the "prototype" for a function, which captures its
 /// name, and its argument names (thus implicitly the number of arguments the
 /// function takes).
@@ -234,8 +249,6 @@ public:
   auto begin() { return functions.begin(); }
   auto end() { return functions.end(); }
 };
-
-void dump(ModuleAST &);
 
 } // namespace lucid_frontend
 

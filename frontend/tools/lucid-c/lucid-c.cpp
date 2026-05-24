@@ -1,6 +1,7 @@
 #include "AST.h"
 #include "Lexer.h"
 #include "Parser.h"
+#include "ASTDumper.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
@@ -46,8 +47,9 @@ int main(int argc, char **argv) {
 
     switch (emitAction) {
     case Action::DumpAST:
-        //dump(*moduleAST);
+        ASTDumper::getInstance().Dump(moduleAST);
         return 0;
+
     default:
         llvm::errs() << "No action specified (parsing only?), use -emit=<action>\n";
     }

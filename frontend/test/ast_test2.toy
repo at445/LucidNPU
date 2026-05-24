@@ -9,10 +9,10 @@ def multiply_transpose(a, b) {
 # CHECK-NEXT: Block {
 # CHECK-NEXT: Return
 # CHECK-NEXT: BinOp: *
-# CHECK-NEXT: Call 'transpose'
+# CHECK-NEXT: Transpose [
 # CHECK-NEXT: var: a
 # CHECK-NEXT: ]
-# CHECK-NEXT: Call 'transpose'
+# CHECK-NEXT: Transpose [
 # CHECK-NEXT: var: b
 # CHECK-NEXT: ]
 
@@ -21,29 +21,29 @@ def main() {
   var b<2, 3> = [1, 2, 3, 4, 5, 6];
 
   var c = multiply_transpose(a, b);
-  # CHECK: VarDecl c<>
-  # CHECK-NEXT: Call 'multiply_transpose'
+  # CHECK: VarDecl c <>
+  # CHECK-NEXT: Call 'multiply_transpose' [
   # CHECK-NEXT: var: a
   # CHECK-NEXT: var: b
   # CHECK-NEXT: ]
 
   var d = multiply_transpose(b, a);
-  # CHECK: VarDecl d<>
-  # CHECK-NEXT: Call 'multiply_transpose'
+  # CHECK: VarDecl d <>
+  # CHECK-NEXT: Call 'multiply_transpose' [
   # CHECK-NEXT: var: b
   # CHECK-NEXT: var: a
   # CHECK-NEXT: ]
 
   var e = multiply_transpose(c, d);
-  # CHECK: VarDecl e<>
-  # CHECK-NEXT: Call 'multiply_transpose'
+  # CHECK: VarDecl e <>
+  # CHECK-NEXT: Call 'multiply_transpose' [
   # CHECK-NEXT: var: c
   # CHECK-NEXT: var: d
   # CHECK-NEXT: ]
 
   var f = multiply_transpose(a, c);
-  # CHECK: VarDecl f<>
-  # CHECK-NEXT: Call 'multiply_transpose'
+  # CHECK: VarDecl f <>
+  # CHECK-NEXT: Call 'multiply_transpose' [
   # CHECK-NEXT: var: a
   # CHECK-NEXT: var: c
   # CHECK-NEXT: ]
