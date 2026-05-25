@@ -16,7 +16,6 @@
 #define LUCID_FRONTEND_AST_VISITOR_H
 #include "AST.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace lucid_frontend {
 template <typename Derived, typename RetTy = void>
@@ -45,7 +44,7 @@ public:
         case ExprAST::ExprASTKind::Expr_Transpose:
             return static_cast<Derived *>(this)->visitTranspose(llvm::cast<TransposeExprAST>(ptr));
         default:
-            break;
+            llvm_unreachable("Unknown ExprASTKind");
         }
     } 
     RetTy visitor(PrototypeAST * ptr) {
@@ -66,9 +65,9 @@ public:
     RetTy visitFunctionCall(CallExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
     RetTy visitPrint(PrintExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
     RetTy visitTranspose(TransposeExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitPrototype(PrototypeAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); }
-    RetTy visitFunction(FunctionAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitModule(ModuleAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
+    RetTy visitPrototype(PrototypeAST *expr) {return RetTy(); }
+    RetTy visitFunction(FunctionAST *expr) { return RetTy(); } 
+    RetTy visitModule(ModuleAST *expr) { return RetTy(); } 
 
 
     RetTy visitExpr(ExprAST *expr) { return RetTy(); }

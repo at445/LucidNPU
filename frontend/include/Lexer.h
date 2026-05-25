@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/StringRef.h"
 
-#include <memory>
 #include <string>
 
 namespace lucid_frontend {
