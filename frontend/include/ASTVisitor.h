@@ -20,7 +20,7 @@
 namespace lucid_frontend {
 template <typename Derived, typename RetTy = void>
 class ASTVisitor {
-public:
+protected:
     RetTy visitor(ExprAST * ptr) {
         if (!ptr) return RetTy();
         switch (ptr->getKind())
@@ -56,21 +56,6 @@ public:
     RetTy visitor(ModuleAST * ptr) {
         return static_cast<Derived *>(this)->visitModule(ptr);
     }
-    RetTy visitVarDeclare(VarDeclExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitReturn(ReturnExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitNumber(NumberExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitLiteral(LiteralExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitVariable(VariableExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitBinary(BinaryExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitFunctionCall(CallExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitPrint(PrintExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitTranspose(TransposeExprAST *expr) { return static_cast<Derived *>(this)->visitExpr(expr); } 
-    RetTy visitPrototype(PrototypeAST *expr) {return RetTy(); }
-    RetTy visitFunction(FunctionAST *expr) { return RetTy(); } 
-    RetTy visitModule(ModuleAST *expr) { return RetTy(); } 
-
-
-    RetTy visitExpr(ExprAST *expr) { return RetTy(); }
 };
 }
 #endif

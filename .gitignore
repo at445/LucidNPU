@@ -6,7 +6,6 @@ build/
 build-*/
 out/
 bin/
-lib/
 
 # CMake cache and auto-generated files
 CMakeCache.txt

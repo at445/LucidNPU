@@ -18,8 +18,7 @@ static std::string loc(T *node) {
 }
 
 class ASTDumper : public ASTVisitor<ASTDumper> {
-private:
-    ASTDumper() = default;
+    friend class ASTVisitor<ASTDumper>;
 
 public:
     ASTDumper(const ASTDumper&) = delete;
@@ -32,8 +31,8 @@ public:
 
     void Dump(ModuleAST *expr);
 
-    // Make these public so ASTVisitor can call them, 
-    // or make ASTVisitor a friend
+private:
+    ASTDumper() = default;
     void visitVarDeclare(VarDeclExprAST *expr);
     void visitReturn(ReturnExprAST *expr);
     void visitNumber(NumberExprAST *expr);
@@ -46,20 +45,9 @@ public:
     void visitPrototype(PrototypeAST *expr);
     void visitFunction(FunctionAST *expr);
     void visitModule(ModuleAST *expr);
-
-    void printType(std::optional<VarType*> type) {
-        llvm::errs() << "<";
-        if (type.has_value() && *type != nullptr) {
-            VarType* actualType = type.value();
-            llvm::interleaveComma(actualType->shape, llvm::errs());
-        }
-        llvm::errs() << ">";
-    }
-
-private:
+    void printType(std::optional<VarType*> type);
     void printLit(ExprAST *litOrNum);
 
-    // RAII helper to manage increasing/decreasing the indentation as we traverse
     struct Indent {
         Indent(int &level) : level(level) { ++level; }
         ~Indent() { --level; }

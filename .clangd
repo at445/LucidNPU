@@ -1,0 +1,28 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add:
+    - -std=gnu++17
+    - -I/home/jasson/LucidNPU/frontend/include
+    - -I/home/jasson/LucidNPU/build/frontend/include
+    - -I/home/jasson/LucidNPU/compiler/include
+    - -I/home/jasson/LucidNPU/runtime/include
+    - -I/home/jasson/llvm-project/llvm/include
+    - -I/home/jasson/llvm-project/build/include
+    - -I/home/jasson/llvm-project/mlir/include
+    - -I/home/jasson/llvm-project/build/tools/mlir/include
+    - -D_GNU_SOURCE
+    - -D_DEBUG
+    - -DGTEST_HAS_RTTI=0
+    - -D__STDC_CONSTANT_MACROS
+    - -D__STDC_FORMAT_MACROS
+    - -D__STDC_LIMIT_MACROS
+  Remove:
+    - -fno-exceptions
+    - -fno-rtti
+
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None
+
+Index:
+  Background: Build

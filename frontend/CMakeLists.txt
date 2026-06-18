@@ -1,3 +1,5 @@
+add_subdirectory(include)
+
 set(TARGET_NAME lucid-c)
 
 set(${TARGET_NAME}_LIBS
@@ -5,13 +7,19 @@ set(${TARGET_NAME}_LIBS
 )
 
 add_llvm_executable(${TARGET_NAME}
-    tools/lucid-c/ASTDumper.cpp
-    tools/lucid-c/lucid-c.cpp
+    lib/ASTDumper.cpp
+    lib/MLIRGen.cpp
+    lib/ToyDialect.cpp
+    lucid-c.cpp
 )
 
-llvm_update_compile_flags(${TARGET_NAME})
+add_dependencies(${TARGET_NAME} ToyOpsIncGen)
 
-target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+llvm_update_compile_flags(${TARGET_NAME})
+target_include_directories(${TARGET_NAME} PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}/include
+)
 target_link_libraries(${TARGET_NAME} PRIVATE ${${TARGET_NAME}_LIBS})
 
 
@@ -30,3 +38,4 @@ else()
   add_test(NAME ASTTest1 COMMAND lucid-c ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test1.toy -emit=ast)
   add_test(NAME ASTTest2 COMMAND lucid-c ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test2.toy -emit=ast)
 endif()
+

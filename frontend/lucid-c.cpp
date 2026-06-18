@@ -1,6 +1,8 @@
 #include "AST.h"
 #include "Lexer.h"
 #include "Parser.h"
+#include "Ops.h"
+#include "Dialect.h"
 #include "ASTDumper.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -11,7 +13,7 @@
 using namespace lucid_frontend;
 namespace cl = llvm::cl;
 namespace {
-    enum Action {None, DumpAST};
+    enum Action {None, DumpAST, DumpMLIR};
 }
 
 static cl::opt<std::string> inputFileName(cl::Positional,
@@ -21,7 +23,9 @@ static cl::opt<std::string> inputFileName(cl::Positional,
 
 static cl::opt<enum Action> emitAction( "emit", 
                                         cl::desc("Select the kind of output desired"),
-                                        cl::values(clEnumValN(DumpAST, "ast", "output the AST dump")));
+                                        cl::values(clEnumValN(DumpAST, "ast", "dump AST")),
+                                        cl::values(clEnumValN(DumpMLIR, "mlir", "dump MLIR"))
+                                    );
 
 /// Returns a lucid_frontend AST resulting from parsing the file or a nullptr on error.
 static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
@@ -48,6 +52,10 @@ int main(int argc, char **argv) {
     switch (emitAction) {
     case Action::DumpAST:
         ASTDumper::getInstance().Dump(moduleAST);
+        return 0;
+
+    case Action::DumpMLIR:
+        llvm::outs() << "not implemente yet\n";
         return 0;
 
     default:

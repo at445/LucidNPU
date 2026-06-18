@@ -141,4 +141,11 @@ void ASTDumper::visitTranspose(TransposeExprAST *expr) {
     llvm::errs() << "]\n";
 }
 
+void ASTDumper::printType(std::optional<VarType *> type) {
+    llvm::errs() << "<";
+    if (type && *type)
+        llvm::interleaveComma((*type)->shape, llvm::errs());
+    llvm::errs() << ">";
+}
+
 } // namespace lucid_frontend

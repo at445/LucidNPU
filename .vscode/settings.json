@@ -1,8 +1,8 @@
 {
     "cmake.sourceDirectory": "${workspaceFolder}",
     "cmake.configureOnOpen": true,
-    "cmake.defaultConfigurePreset": "default",
-    "cmake.defaultBuildPreset": "default",
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
+    "files.associations": {
+        "*.h.inc": "cpp",
+        "*.cpp.inc": "cpp"
+    },
 }
