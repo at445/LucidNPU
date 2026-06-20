@@ -70,7 +70,7 @@ private:
 
   /// Parse a return statement.
   /// return :== return ; | return expr ;
-  ReturnExprAST* parseReturn() {
+  ReturnStmtAST *parseReturn() {
     auto loc = lexer.getLastLocation();
     lexer.consume(tok_return);
 
@@ -81,7 +81,7 @@ private:
       if (!expr)
         return nullptr;
     }
-    return new (allocator) ReturnExprAST(loc, expr);
+    return new (allocator) ReturnStmtAST(loc, expr);
   }
 
   /// Parse a literal number.
@@ -324,14 +324,14 @@ private:
   /// and identifier and an optional type (shape specification) before the
   /// initializer.
   /// decl ::= var identifier [ type ] = expr
-  VarDeclExprAST* parseDeclaration() {
+  VarDeclStmtAST *parseDeclaration() {
     if (lexer.getCurToken() != tok_var)
-      return parseError<VarDeclExprAST>("var", "to begin declaration");
+      return parseError<VarDeclStmtAST>("var", "to begin declaration");
     auto loc = lexer.getLastLocation();
     lexer.getNextToken(); // eat var
 
     if (lexer.getCurToken() != tok_identifier)
-      return parseError<VarDeclExprAST>("identified",
+      return parseError<VarDeclStmtAST>("identified",
                                         "after 'var' declaration");
     auto id = saver.save(lexer.getId());
     lexer.getNextToken(); // eat id
@@ -345,60 +345,58 @@ private:
 
     lexer.consume(Token('='));
     auto expr = parseExpression();
-    return new (allocator) VarDeclExprAST(loc, id, type, expr);
+    return new (allocator) VarDeclStmtAST(loc, id, type, expr);
   }
 
-  /// Parse a block: a list of expression separated by semicolons and wrapped in
+  /// Parse a block: a list of statements separated by semicolons and wrapped in
   /// curly braces.
   ///
-  /// block ::= { expression_list }
-  /// expression_list ::= block_expr ; expression_list
-  /// block_expr ::= decl | "return" | expr
-  ExprASTList * parseBlock() {
+  /// block ::= { statement_list }
+  /// statement_list ::= block_stmt ; statement_list
+  /// block_stmt ::= decl | "return" | expr
+  StmtASTList *parseBlock() {
     if (lexer.getCurToken() != '{')
-      return parseError<ExprASTList>("{", "to begin block");
+      return parseError<StmtASTList>("{", "to begin block");
     lexer.consume(Token('{'));
 
-    std::vector<ExprAST *> exprs;
+    std::vector<StmtAST *> stmts;
 
-    // Ignore empty expressions: swallow sequences of semicolons.
+    // Ignore empty statements: swallow sequences of semicolons.
     while (lexer.getCurToken() == ';')
       lexer.consume(Token(';'));
 
     while (lexer.getCurToken() != '}' && lexer.getCurToken() != tok_eof) {
       if (lexer.getCurToken() == tok_var) {
-        // Variable declaration
         auto varDecl = parseDeclaration();
         if (!varDecl)
           return nullptr;
-        exprs.push_back(std::move(varDecl));
+        stmts.push_back(varDecl);
       } else if (lexer.getCurToken() == tok_return) {
-        // Return statement
         auto ret = parseReturn();
         if (!ret)
           return nullptr;
-        exprs.push_back(std::move(ret));
+        stmts.push_back(ret);
       } else {
-        // General expression
+        auto loc = lexer.getLastLocation();
         auto expr = parseExpression();
         if (!expr)
           return nullptr;
-        exprs.push_back(std::move(expr));
+        stmts.push_back(new (allocator) ExprStmtAST(loc, expr));
       }
       // Ensure that elements are separated by a semicolon.
       if (lexer.getCurToken() != ';')
-        return parseError<ExprASTList>(";", "after expression");
+        return parseError<StmtASTList>(";", "after statement");
 
-      // Ignore empty expressions: swallow sequences of semicolons.
+      // Ignore empty statements: swallow sequences of semicolons.
       while (lexer.getCurToken() == ';')
         lexer.consume(Token(';'));
     }
 
     if (lexer.getCurToken() != '}')
-      return parseError<ExprASTList>("}", "to close block");
+      return parseError<StmtASTList>("}", "to close block");
 
     lexer.consume(Token('}'));
-    return new (allocator) ExprASTList(AllocaInArena(exprs));
+    return new (allocator) StmtASTList(AllocaInArena(stmts));
   }
 
   /// prototype ::= def id '(' decl_list ')'

@@ -29,15 +29,27 @@ namespace lucid_frontend {
 /// A variable type with shape information.
 struct VarType {
   llvm::ArrayRef<int64_t> shape;
-  VarType(llvm::ArrayRef<int64_t> shape): shape(shape){}
+  VarType(llvm::ArrayRef<int64_t> shape) : shape(shape) {}
+};
+
+/// Base class for all AST nodes that carry source location.
+class NodeAST {
+public:
+  virtual ~NodeAST() = default;
+
+  const Location &loc() const { return location; }
+
+protected:
+  NodeAST(Location location) : location(location) {}
+
+private:
+  Location location;
 };
 
 /// Base class for all expression nodes.
-class ExprAST {
+class ExprAST : public NodeAST {
 public:
   enum ExprASTKind {
-    Expr_VarDecl,
-    Expr_Return,
     Expr_Num,
     Expr_Literal,
     Expr_Var,
@@ -48,20 +60,37 @@ public:
   };
 
   ExprAST(ExprASTKind kind, Location location)
-      : kind(kind), location(location) {}
-  virtual ~ExprAST() = default;
+      : NodeAST(location), kind(kind) {}
 
   ExprASTKind getKind() const { return kind; }
 
-  const Location &loc() const { return location; }
-
 private:
   const ExprASTKind kind;
-  Location location;
 };
 
-/// A block-list of expressions.
+/// Base class for all statement nodes.
+class StmtAST : public NodeAST {
+public:
+  enum StmtASTKind {
+    Stmt_VarDecl,
+    Stmt_Return,
+    Stmt_Expr
+  };
+
+  StmtAST(StmtASTKind kind, Location location)
+      : NodeAST(location), kind(kind) {}
+
+  StmtASTKind getKind() const { return kind; }
+
+private:
+  const StmtASTKind kind;
+};
+
+/// A block-list of expressions (e.g. literal elements, call arguments).
 using ExprASTList = llvm::ArrayRef<ExprAST *>;
+
+/// A block-list of statements in a function body.
+using StmtASTList = llvm::ArrayRef<StmtAST *>;
 
 /// Expression class for numeric literals like "1.0".
 class NumberExprAST : public ExprAST {
@@ -73,7 +102,6 @@ public:
 
   double getValue() const { return val; }
 
-  /// LLVM style RTTI
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_Num; }
 };
 
@@ -90,8 +118,9 @@ public:
   ExprASTList getValues() const { return values; }
   llvm::ArrayRef<int64_t> getDims() const { return dims; }
 
-  /// LLVM style RTTI
-  static bool classof(const ExprAST *c) { return c->getKind() == Expr_Literal; }
+  static bool classof(const ExprAST *c) {
+    return c->getKind() == Expr_Literal;
+  }
 };
 
 /// Expression class for referencing a variable, like "a".
@@ -104,44 +133,55 @@ public:
 
   llvm::StringRef getName() const { return name; }
 
-  /// LLVM style RTTI
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_Var; }
 };
 
-/// Expression class for defining a variable.
-class VarDeclExprAST : public ExprAST {
+/// Statement class for defining a variable.
+class VarDeclStmtAST : public StmtAST {
   llvm::StringRef name;
-  std::optional<VarType*> type; // Type is optional, it can be inferred
-  ExprAST* initVal;
+  std::optional<VarType *> type; // Type is optional, it can be inferred
+  ExprAST *initVal;
 
 public:
-  VarDeclExprAST(Location loc, llvm::StringRef name, 
-                  std::optional<VarType*> type, ExprAST* initVal)
-      : ExprAST(Expr_VarDecl, loc), name(name),
-        type(type), initVal(initVal) {}
+  VarDeclStmtAST(Location loc, llvm::StringRef name,
+                 std::optional<VarType *> type, ExprAST *initVal)
+      : StmtAST(Stmt_VarDecl, loc), name(name), type(type), initVal(initVal) {}
 
   llvm::StringRef getName() const { return name; }
-  ExprAST* getInitVal() const { return initVal; }
-  const std::optional<VarType*> getType() const { return type; }
+  ExprAST *getInitVal() const { return initVal; }
+  const std::optional<VarType *> getType() const { return type; }
 
-  /// LLVM style RTTI
-  static bool classof(const ExprAST *c) { return c->getKind() == Expr_VarDecl; }
+  static bool classof(const StmtAST *c) {
+    return c->getKind() == Stmt_VarDecl;
+  }
 };
 
-/// Expression class for a return operator.
-class ReturnExprAST : public ExprAST {
-  std::optional<ExprAST*> expr;
+/// Statement class for a return operator.
+class ReturnStmtAST : public StmtAST {
+  std::optional<ExprAST *> expr;
 
 public:
-  ReturnExprAST(Location loc, std::optional<ExprAST*> expr)
-      : ExprAST(Expr_Return, loc), expr(expr) {}
+  ReturnStmtAST(Location loc, std::optional<ExprAST *> expr)
+      : StmtAST(Stmt_Return, loc), expr(expr) {}
 
-  std::optional<ExprAST*> getExpr() const {
-    return expr;
+  std::optional<ExprAST *> getExpr() const { return expr; }
+
+  static bool classof(const StmtAST *c) {
+    return c->getKind() == Stmt_Return;
   }
+};
 
-  /// LLVM style RTTI
-  static bool classof(const ExprAST *c) { return c->getKind() == Expr_Return; }
+/// Statement class wrapping a bare expression in a block.
+class ExprStmtAST : public StmtAST {
+  ExprAST *expr;
+
+public:
+  ExprStmtAST(Location loc, ExprAST *expr)
+      : StmtAST(Stmt_Expr, loc), expr(expr) {}
+
+  ExprAST *getExpr() const { return expr; }
+
+  static bool classof(const StmtAST *c) { return c->getKind() == Stmt_Expr; }
 };
 
 /// Expression class for a binary operator.
@@ -154,11 +194,9 @@ public:
   ExprAST *getLHS() const { return lhs; }
   ExprAST *getRHS() const { return rhs; }
 
-  BinaryExprAST(Location loc, char op, ExprAST* lhs,
-                ExprAST* rhs)
+  BinaryExprAST(Location loc, char op, ExprAST *lhs, ExprAST *rhs)
       : ExprAST(Expr_BinOp, loc), op(op), lhs(lhs), rhs(rhs) {}
 
-  /// LLVM style RTTI
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_BinOp; }
 };
 
@@ -169,42 +207,40 @@ class CallExprAST : public ExprAST {
 
 public:
   CallExprAST(Location loc, const llvm::StringRef &callee, ExprASTList args)
-      : ExprAST(Expr_Call, loc), callee(callee),
-        args(args) {}
+      : ExprAST(Expr_Call, loc), callee(callee), args(args) {}
 
   llvm::StringRef getCallee() const { return callee; }
   ExprASTList getArgs() const { return args; }
 
-  /// LLVM style RTTI
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_Call; }
 };
 
 /// Expression class for builtin print calls.
 class PrintExprAST : public ExprAST {
-  ExprAST * arg;
+  ExprAST *arg;
 
 public:
-  PrintExprAST(Location loc, ExprAST* arg)
+  PrintExprAST(Location loc, ExprAST *arg)
       : ExprAST(Expr_Print, loc), arg(arg) {}
 
   ExprAST *getArg() const { return arg; }
 
-  /// LLVM style RTTI
   static bool classof(const ExprAST *c) { return c->getKind() == Expr_Print; }
 };
 
-/// Expression class for builtin print calls.
+/// Expression class for transpose builtin calls.
 class TransposeExprAST : public ExprAST {
-  ExprAST * arg;
+  ExprAST *arg;
 
 public:
-  TransposeExprAST(Location loc, ExprAST* arg)
+  TransposeExprAST(Location loc, ExprAST *arg)
       : ExprAST(Expr_Transpose, loc), arg(arg) {}
 
   ExprAST *getArg() const { return arg; }
 
-  /// LLVM style RTTI
-  static bool classof(const ExprAST *c) { return c->getKind() == Expr_Transpose; }
+  static bool classof(const ExprAST *c) {
+    return c->getKind() == Expr_Transpose;
+  }
 };
 
 /// This class represents the "prototype" for a function, which captures its
@@ -213,37 +249,36 @@ public:
 class PrototypeAST {
   Location location;
   llvm::StringRef name;
-  llvm::ArrayRef<VariableExprAST*> args;
+  llvm::ArrayRef<VariableExprAST *> args;
 
 public:
   PrototypeAST(Location location, const llvm::StringRef &name,
-               llvm::ArrayRef<VariableExprAST*> args)
+               llvm::ArrayRef<VariableExprAST *> args)
       : location(location), name(name), args(args) {}
 
   const Location &loc() const { return location; }
   llvm::StringRef getName() const { return name; }
-  llvm::ArrayRef<VariableExprAST*> getArgs() const { return args; }
+  llvm::ArrayRef<VariableExprAST *> getArgs() const { return args; }
 };
 
 /// This class represents a function definition itself.
 class FunctionAST {
-  PrototypeAST* proto;
-  ExprASTList body;
+  PrototypeAST *proto;
+  StmtASTList body;
 
 public:
-  FunctionAST(PrototypeAST* proto,
-              ExprASTList body)
+  FunctionAST(PrototypeAST *proto, StmtASTList body)
       : proto(proto), body(body) {}
   PrototypeAST *getProto() const { return proto; }
-  ExprASTList getBody() const { return body; }
+  StmtASTList getBody() const { return body; }
 };
 
 /// This class represents a list of functions to be processed together
 class ModuleAST {
-  llvm::ArrayRef<FunctionAST*> functions;
+  llvm::ArrayRef<FunctionAST *> functions;
 
 public:
-  ModuleAST(llvm::ArrayRef<FunctionAST*>  functions)
+  ModuleAST(llvm::ArrayRef<FunctionAST *> functions)
       : functions(functions) {}
 
   auto begin() { return functions.begin(); }
