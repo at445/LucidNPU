@@ -4,6 +4,7 @@
 #include "Ops.h"
 #include "Dialect.h"
 #include "ASTDumper.h"
+#include "MLIRGen.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
@@ -46,6 +47,7 @@ int main(int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to .mlir file");
     
     auto moduleAST = parseInputFile(inputFileName);
+    
     if (!moduleAST)
         return 1;
 
@@ -55,7 +57,18 @@ int main(int argc, char **argv) {
         return 0;
 
     case Action::DumpMLIR:
-        llvm::outs() << "not implemente yet\n";
+        {
+            mlir::MLIRContext context;
+            // Load our Dialect in this MLIR Context.
+            context.getOrLoadDialect<mlir::toy::ToyDialect>();
+            mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
+            if (!module) {
+                llvm::errs() << "MLIR generation failed\n";
+                return 1;
+            }
+            module->print(llvm::outs());
+            llvm::outs() << "\n";
+        }
         return 0;
 
     default:

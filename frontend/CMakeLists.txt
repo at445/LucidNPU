@@ -3,7 +3,12 @@ add_subdirectory(include)
 set(TARGET_NAME lucid-c)
 
 set(${TARGET_NAME}_LIBS
+    MLIRAnalysis
+    MLIRFunctionInterfaces
+    MLIRIR
+    MLIRSideEffectInterfaces
     MLIRSupport
+    MLIRTransforms
 )
 
 add_llvm_executable(${TARGET_NAME}
@@ -16,6 +21,12 @@ add_llvm_executable(${TARGET_NAME}
 add_dependencies(${TARGET_NAME} ToyOpsIncGen)
 
 llvm_update_compile_flags(${TARGET_NAME})
+
+# llvm_update_compile_flags inherits LLVM flags; force -O0 for readable single-stepping.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(${TARGET_NAME} PRIVATE -O0 -ggdb3 -fno-inline)
+endif()
+
 target_include_directories(${TARGET_NAME} PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/include

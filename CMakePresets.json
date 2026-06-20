@@ -8,11 +8,24 @@
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "Default Setup",
+      "displayName": "Default (RelWithDebInfo)",
       "description": "Ninja generator with LLVM and MLIR paths",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLVM_DIR": "$env{HOME}/llvm-project/build/lib/cmake/llvm",
+        "MLIR_DIR": "$env{HOME}/llvm-project/build/lib/cmake/mlir"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with -g -O0 for breakpoints",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
         "LLVM_DIR": "$env{HOME}/llvm-project/build/lib/cmake/llvm",
         "MLIR_DIR": "$env{HOME}/llvm-project/build/lib/cmake/mlir"
       }
@@ -23,6 +36,11 @@
       "name": "default",
       "configurePreset": "default",
       "displayName": "Build Default"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "displayName": "Build Debug"
     }
   ]
 }

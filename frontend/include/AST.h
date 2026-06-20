@@ -281,8 +281,8 @@ public:
   ModuleAST(llvm::ArrayRef<FunctionAST *> functions)
       : functions(functions) {}
 
-  auto begin() { return functions.begin(); }
-  auto end() { return functions.end(); }
+  auto begin() const { return functions.begin(); }
+  auto end() const { return functions.end(); }
 };
 
 } // namespace lucid_frontend

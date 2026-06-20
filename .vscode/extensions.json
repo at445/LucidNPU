@@ -1,10 +1,6 @@
 {
     "recommendations": [
-        "llvm-vs-code-extensions.vscode-clangd"
-    ],
-    "unwantedRecommendations": [
-        "ms-vscode.cpptools",
-        "ms-vscode.cpptools-extension-pack",
-        "ms-vscode.cpptools-themes"
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cpptools"
     ]
 }

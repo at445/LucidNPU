@@ -48,14 +48,18 @@ def ConstantOp : Toy_Op<"constant"> {
 
 }
 
-def ReturnOP : Toy_Op<"return", [Terminator]> {
+def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {
     let summary = "return operation";
 
-    let arguments = (ins F64Tensor:$input);
+    let arguments = (ins Variadic<F64Tensor>:$input);
+    let assemblyFormat = "($input^ `:` type($input))? attr-dict";
 }
 
 def FuncOp : Toy_Op<"func"> {
     let summary = "user defined function operation";
+    let arguments = (ins SymbolNameAttr:$sym_name);
     let regions = (region AnyRegion:$body);
+    let skipDefaultBuilders = 1;
+    let builders = [OpBuilder<(ins "StringRef":$name, "FunctionType":$type)>];
 }
 #endif // TOY_OPS

@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -9,9 +6,34 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/lucid-c",
-            "args": ["${workspaceFolder}/frontend/test/test.toy", "-emit=ast"],
+            "args": [
+                "${workspaceFolder}/frontend/test/test.toy",
+                "-emit=mlir"
+            ],
             "cwd": "${workspaceFolder}",
-            "MIMode": "gdb"
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "justMyCode": true,
+            "preLaunchTask": "Build lucid-c (Debug)",
+            "setupCommands": [
+                {
+                    "description": "Enable GDB pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Skip stepping into LLVM/MLIR sources",
+                    "text": "-exec skip -rf ${env:HOME}/llvm-project",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Skip stepping into libstdc++ headers",
+                    "text": "-exec skip -rf /usr/include/c++",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

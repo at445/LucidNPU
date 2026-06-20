@@ -1,6 +1,8 @@
 {
     "cmake.sourceDirectory": "${workspaceFolder}",
     "cmake.configureOnOpen": true,
+    "cmake.configurePreset": "debug",
+    "cmake.buildPreset": "debug",
     "files.associations": {
         "*.h.inc": "cpp",
         "*.cpp.inc": "cpp"
