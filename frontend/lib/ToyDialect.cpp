@@ -85,8 +85,13 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
     }
 
     return mlir::success();
-  }
+}
 
+void MatrixMul::build(mlir::OpBuilder &builder, mlir::OperationState &state,
+                      mlir::Value lhs, mlir::Value rhs) {
+  state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
+  state.addOperands({lhs, rhs});
+}
 
 void FuncOp::build(OpBuilder &builder, OperationState &state, StringRef name, FunctionType type) {
     OpBuilder::InsertionGuard guard(builder);

@@ -5,6 +5,7 @@ set(TARGET_NAME lucid-c)
 set(${TARGET_NAME}_LIBS
     MLIRAnalysis
     MLIRFunctionInterfaces
+    MLIRInferTypeOpInterface
     MLIRIR
     MLIRSideEffectInterfaces
     MLIRSupport
@@ -37,16 +38,27 @@ target_link_libraries(${TARGET_NAME} PRIVATE ${${TARGET_NAME}_LIBS})
 # Find FileCheck for validation
 find_program(FILECHECK_EXECUTABLE FileCheck PATHS ${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH)
 if(NOT FILECHECK_EXECUTABLE)
-  # Fallback to system path if not found in LLVM binary dir
   find_program(FILECHECK_EXECUTABLE FileCheck)
 endif()
 
 if(FILECHECK_EXECUTABLE)
-  add_test(NAME ASTTest1 COMMAND bash -c "$<TARGET_FILE:lucid-c> ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test1.toy -emit=ast 2>&1 | ${FILECHECK_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test1.toy")
-  add_test(NAME ASTTest2 COMMAND bash -c "$<TARGET_FILE:lucid-c> ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test2.toy -emit=ast 2>&1 | ${FILECHECK_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test2.toy")
-else()
-  message(WARNING "FileCheck not found. AST Integration tests will not be validated, only executed.")
-  add_test(NAME ASTTest1 COMMAND lucid-c ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test1.toy -emit=ast)
-  add_test(NAME ASTTest2 COMMAND lucid-c ${CMAKE_CURRENT_SOURCE_DIR}/test/ast_test2.toy -emit=ast)
-endif()
+  set(LUCID_C_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
+  set(RUN_SUITE ${LUCID_C_TEST_DIR}/run_suite.sh)
 
+  function(add_lucid_c_suite name suite_dir emit_flag mode label)
+    add_test(NAME ${name}
+      COMMAND ${RUN_SUITE}
+        $<TARGET_FILE:lucid-c>
+        ${FILECHECK_EXECUTABLE}
+        ${LUCID_C_TEST_DIR}/${suite_dir}
+        ${emit_flag}
+        ${mode})
+    set_tests_properties(${name} PROPERTIES LABELS "${label};frontend")
+  endfunction()
+
+  add_lucid_c_suite(ASTDumpSuite ast -emit=ast positive ast)
+  add_lucid_c_suite(MLIRDumpSuite mlir -emit=mlir positive mlir)
+  add_lucid_c_suite(ErrorSuite error -emit=mlir negative error)
+else()
+  message(WARNING "FileCheck not found. Integration tests are disabled.")
+endif()

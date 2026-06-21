@@ -1,0 +1,12 @@
+# RUN: not lucid-c %s -emit=mlir 2>&1 | FileCheck %s
+#
+# Malformed expression: missing RHS after binary operator.
+
+def main() {
+  var a = 1 + ;
+}
+
+# CHECK: Parse error
+# CHECK: expected 'expression'
+# CHECK: missing initializer in variable declaration
+# CHECK: module verification error

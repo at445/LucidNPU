@@ -137,12 +137,37 @@ private:
             return mlirGen(llvm::cast<LiteralExprAST>(expr));
         case ExprAST::Expr_Var:
             return mlirGen(llvm::cast<VariableExprAST>(expr));
+        case ExprAST::Expr_BinOp:
+            return mlirGen(llvm::cast<BinaryExprAST>(expr));
         default:
             mlir::emitError(locConvert(expr.loc()))
                 << "MLIR codegen encountered an unhandled expr kind '"
                 << llvm::Twine(expr.getKind()) << "'";
             return nullptr;
         }
+    }
+
+    mlir::Value mlirGen(const BinaryExprAST &binaryExpr) {
+        auto lhs = mlirGen(*binaryExpr.getLHS());
+        auto rhs = mlirGen(*binaryExpr.getRHS());
+        auto type = lhs.getType();
+        auto op = binaryExpr.getOp();
+        auto loc = locConvert(binaryExpr.loc());
+        switch (op) {
+            case '+':
+                return m_builder.create<mlir::toy::AddOp>(loc, lhs, rhs);
+            case '-':
+                return m_builder.create<mlir::toy::SubOp>(loc, lhs, rhs);
+            case '*':
+                return m_builder.create<mlir::toy::MulOp>(loc, lhs, rhs);
+            case '/':
+                return m_builder.create<mlir::toy::DivOp>(loc, lhs, rhs);
+            case '@':
+                return m_builder.create<mlir::toy::MatrixMul>(loc, lhs, rhs);
+            default:
+                llvm_unreachable("unknown binary op");
+        }
+        return nullptr;
     }
 
     mlir::Value mlirGen(const VariableExprAST &var) {

@@ -14,6 +14,7 @@
 #define TOY_OPS
 
 include "mlir/IR/OpBase.td"
+include "mlir/Interfaces/InferTypeOpInterface.td" 
 include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -37,8 +38,8 @@ class Toy_Op<string mnemonic, list<Trait> traits = []> :
 // Toy Operations
 //===----------------------------------------------------------------------===//
 
-
-def ConstantOp : Toy_Op<"constant"> {
+// marked as 'Pure' as it is a pure operation and may be removed if dead.
+def ConstantOp : Toy_Op<"constant", [Pure]> {
 
     let summary = "constant";
 
@@ -59,6 +60,60 @@ def ConstantOp : Toy_Op<"constant"> {
     ];
 
     let hasVerifier = 1;
+}
+
+def AddOp : Toy_Op<"add", [Pure, SameOperandsAndResultType]> {
+    let summary = "element-wise addition operation";
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+
+    let results = (outs F64Tensor:$result);
+
+    let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
+}
+
+def SubOp : Toy_Op<"sub", [Pure, SameOperandsAndResultType]> {
+    let summary = "element-wise subtraction operation";
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+
+    let results = (outs F64Tensor:$result);
+
+    let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
+}
+
+def MulOp : Toy_Op<"mul", [Pure, SameOperandsAndResultType]> {
+    let summary = "element-wise multiplication operation";
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+
+    let results = (outs F64Tensor:$result);
+
+    let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
+}
+
+def DivOp : Toy_Op<"div", [Pure, SameOperandsAndResultType]> {
+    let summary = "element-wise division operation";
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+
+    let results = (outs F64Tensor:$result);
+
+    let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
+}
+
+def MatrixMul : Toy_Op<"matrix_mul", [Pure]> {
+    let summary = "matrix multiplication operation";
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+
+    let results = (outs F64Tensor:$result);
+
+    let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
+
+    let builders = [
+        OpBuilder<(ins "Value":$lhs, "Value":$rhs)>
+    ];
 }
 
 def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {

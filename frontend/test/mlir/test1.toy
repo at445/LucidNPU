@@ -1,0 +1,30 @@
+# RUN: lucid-c %s -emit=mlir 2>&1 | FileCheck %s
+#
+# Scope: constant lowering, element-wise (+ - * /), matrix_mul (@).
+# Does not cover variable reuse (e.g. a + a).
+
+def main() {
+  var d = [[1,2,3],[4,5,6]] + [[1,2,3],[4,5,6]] / [[1,2,3],[4,5,6]] - [[1,2,3],[4,5,6]] * [[1,2,3],[4,5,6]];
+  var e = [[1,2,3],[4,5,6]] @ [1,2,4];
+}
+
+# CHECK: module {
+# CHECK: "toy.func"() <{sym_name = "main"}> ({
+
+# Element-wise: A + (B / C) - (D * E)  =>  div, add, mul, sub.
+# CHECK: toy.div {{.*}}: tensor<2x3xf64>
+# CHECK: toy.add {{.*}}: tensor<2x3xf64>
+# CHECK: toy.mul {{.*}}: tensor<2x3xf64>
+# CHECK: toy.sub {{.*}}: tensor<2x3xf64>
+
+# Constants materialized from tensor / vector literals.
+# CHECK-DAG: toy.constant{{.*}}: tensor<2x3xf64>
+# CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
+
+# Matrix multiply assembly format.
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<*xf64>
+
+# CHECK: toy.return
+# CHECK: }) : () -> ()
+# CHECK: }
+# CHECK-NOT: error:

@@ -463,11 +463,13 @@ private:
     // 1 is lowest precedence.
     switch (static_cast<char>(lexer.getCurToken())) {
     case '-':
-      return 20;
     case '+':
       return 20;
     case '*':
-      return 40;
+    case '/':
+      return 40; // element-wise mul / div
+    case '@':
+      return 50; // matrix multiplication
     default:
       return -1;
     }
