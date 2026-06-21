@@ -131,6 +131,8 @@ private:
     /// Dispatch codegen for the right expression subclass using RTTI.
     mlir::Value mlirGen(ExprAST &expr) {
         switch (expr.getKind()) {
+        case ExprAST::Expr_Num: 
+            return mlirGen(llvm::cast<NumberExprAST>(expr));
         case ExprAST::Expr_Literal:
             return mlirGen(llvm::cast<LiteralExprAST>(expr));
         case ExprAST::Expr_Var:
@@ -149,6 +151,11 @@ private:
         mlir::emitError(locConvert(var.loc()), "unknown variable '")
             << var.getName() << "'";
         return nullptr;
+    }
+
+    mlir::Value mlirGen(const NumberExprAST &number) {
+        auto loc = number.loc();
+        return m_builder.create<mlir::toy::ConstantOp>(locConvert(number.loc()),  number.getValue());
     }
 
     mlir::Value mlirGen(const LiteralExprAST &literal) {

@@ -46,6 +46,19 @@ def ConstantOp : Toy_Op<"constant"> {
 
     let results = (outs F64Tensor);
 
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        // Build a constant with a given constant tensor value.
+        OpBuilder<(ins "DenseElementsAttr":$value), [{
+            build($_builder, $_state, value.getType(), value);
+        }]>,
+
+        // Build a constant with a given constant floating-point value.
+        OpBuilder<(ins "double":$value)>
+    ];
+
+    let hasVerifier = 1;
 }
 
 def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {

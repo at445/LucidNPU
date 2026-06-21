@@ -15,7 +15,6 @@
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": false,
             "externalConsole": false,
-            "justMyCode": true,
             "preLaunchTask": "Build lucid-c (Debug)",
             "setupCommands": [
                 {
