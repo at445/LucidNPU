@@ -102,7 +102,7 @@ def DivOp : Toy_Op<"div", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def MatrixMul : Toy_Op<"matrix_mul", [Pure]> {
+def MatrixMulOp : Toy_Op<"matrix_mul", [Pure]> {
     let summary = "matrix multiplication operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -114,6 +114,9 @@ def MatrixMul : Toy_Op<"matrix_mul", [Pure]> {
     let builders = [
         OpBuilder<(ins "Value":$lhs, "Value":$rhs)>
     ];
+
+    // Indicate that additional verification for this operation is necessary.
+    let hasVerifier = 1;
 }
 
 def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {

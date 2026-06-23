@@ -54,11 +54,26 @@ if(FILECHECK_EXECUTABLE)
         ${emit_flag}
         ${mode})
     set_tests_properties(${name} PROPERTIES LABELS "${label};frontend")
+
+    # ctest does not build lucid-c; this target does.
+    add_custom_target(${name}-run
+      COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}
+              ${CMAKE_CTEST_COMMAND} --output-on-failure -R ${name}
+      DEPENDS lucid-c
+      USES_TERMINAL
+      COMMENT "Build lucid-c and run ${name}")
   endfunction()
 
   add_lucid_c_suite(ASTDumpSuite ast -emit=ast positive ast)
   add_lucid_c_suite(MLIRDumpSuite mlir -emit=mlir positive mlir)
   add_lucid_c_suite(ErrorSuite error -emit=mlir negative error)
+
+  add_custom_target(check-frontend
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}
+            ${CMAKE_CTEST_COMMAND} --output-on-failure -L frontend
+    DEPENDS lucid-c
+    USES_TERMINAL
+    COMMENT "Build lucid-c and run all frontend FileCheck suites")
 else()
   message(WARNING "FileCheck not found. Integration tests are disabled.")
 endif()

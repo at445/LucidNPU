@@ -12,7 +12,21 @@ emit_flag="$4"
 mode="$5"
 
 fail=0
-shopt -s nullglob
+
+if [ ! -f "$lucid_c" ]; then
+  echo "ERROR: lucid-c not found: $lucid_c" >&2
+  echo "Build it first: cmake --build <build-dir> --target lucid-c" >&2
+  exit 1
+fi
+if [ ! -f "$filecheck" ]; then
+  echo "ERROR: FileCheck not found: $filecheck" >&2
+  echo "Re-configure with LLVM/MLIR on PATH, or set -DLLVM_TOOLS_BINARY_DIR=..." >&2
+  exit 1
+fi
+if [ ! -d "$suite_dir" ]; then
+  echo "ERROR: test directory not found: $suite_dir" >&2
+  exit 1
+fi
 
 run_positive() {
   local test="$1"
@@ -36,7 +50,13 @@ run_negative() {
   return 1
 }
 
-for test in "$suite_dir"/*.toy; do
+mapfile -t tests < <(find "$suite_dir" -name '*.toy' | sort)
+if [ "${#tests[@]}" -eq 0 ]; then
+  echo "No *.toy tests found under $suite_dir" >&2
+  exit 1
+fi
+
+for test in "${tests[@]}"; do
   case "$mode" in
     positive)
       run_positive "$test" || fail=1

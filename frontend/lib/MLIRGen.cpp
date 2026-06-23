@@ -163,7 +163,7 @@ private:
             case '/':
                 return m_builder.create<mlir::toy::DivOp>(loc, lhs, rhs);
             case '@':
-                return m_builder.create<mlir::toy::MatrixMul>(loc, lhs, rhs);
+                return m_builder.create<mlir::toy::MatrixMulOp>(loc, lhs, rhs);
             default:
                 llvm_unreachable("unknown binary op");
         }
@@ -216,6 +216,7 @@ private:
         m_symbolTable.insert(var, value);
         return mlir::success();
     }
+    
     mlir::toy::FuncOp mlirGen(const PrototypeAST & prototypeAST) {
         auto loc = locConvert(prototypeAST.loc());
         // This is a generic function, the return type will be inferred later.

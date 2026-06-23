@@ -144,8 +144,9 @@ private:
                                    "inside literal expression");
 
       // Append the nested dimensions to the current level
-      auto firstDims = firstLiteral->getDims();
-      dims.insert(dims.end(), firstDims.begin(), firstDims.end());
+      const llvm::ArrayRef<int64_t> firstDims = firstLiteral->getDims();
+      for (int64_t dim : firstDims)
+        dims.push_back(dim);
 
       // Sanity check that shape is uniform across all elements of the list.
       for (auto &expr : values) {
