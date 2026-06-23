@@ -45,16 +45,15 @@ private:
     void mlirGen(const FunctionAST& functionAST) {
         // create a symbolTable for function scope
         llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> funScope(m_symbolTable);
-
+        auto proto = functionAST.getProto();
         // Create an MLIR function for the given prototype.
-        mlir::toy::FuncOp function = mlirGen(*functionAST.getProto());
+        mlir::toy::FuncOp function = mlirGen(*proto);
         if (!function)
             return;
 
         // Insert the formal parameters of the current function into the symbol table.
         mlir::Block &entryBlock = function.front();
-        auto protoArgs = functionAST.getProto()->getArgs();
-        for (const auto nameAndValue: llvm::zip(protoArgs, entryBlock.getArguments())) {
+        for (const auto nameAndValue: llvm::zip(proto->getArgs(), entryBlock.getArguments())) {
             if (failed(declare(std::get<0>(nameAndValue)->getName(),
                          std::get<1>(nameAndValue))))
             return;
@@ -66,14 +65,19 @@ private:
             if (mlir::failed(mlirGen(*stmt)))
                 return;
         }
-
-        // Implicit void return if the function body didn't end with return.
+        
         mlir::toy::ReturnOp returnOp;
         if (!entryBlock.empty())
             returnOp = llvm::dyn_cast<mlir::toy::ReturnOp>(entryBlock.back());
-        if (!returnOp)
-            m_builder.create<mlir::toy::ReturnOp>(
-                locConvert(functionAST.getProto()->loc()), mlir::ValueRange{});
+        
+        // Implicit void return if the function body didn't end with return.
+        if (!returnOp) {
+            returnOp = m_builder.create<mlir::toy::ReturnOp>(locConvert(proto->loc()));
+        }
+
+        // change the function result type base on return op type
+        auto oldFuncType = function.getFunctionType();
+        function.setFunctionType(oldFuncType.clone(oldFuncType.getInputs(), returnOp.getOperandTypes()));
     }
 
     mlir::LogicalResult mlirGen(const ReturnStmtAST &returnAST) {

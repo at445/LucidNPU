@@ -1,6 +1,7 @@
 # RUN: lucid-c %s -emit=mlir 2>&1 | FileCheck %s
 #
 # Constant lowering: scalar (rank 0), vector (rank 1), matrix (rank 2).
+# No explicit return: implicit void return and function type without results.
 
 def main() {
   var a = 1;
@@ -10,10 +11,12 @@ def main() {
 
 # CHECK: module {
 # CHECK: toy.func @main() {
+# CHECK-NOT: toy.func @main() ->
 # CHECK-DAG: toy.constant dense<1.000000e+00> : tensor<f64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3x2xf64>
 # CHECK: toy.return
+# CHECK-NOT: toy.return %
 # CHECK-NOT: toy.add
 # CHECK-NOT: toy.matrix_mul
 # CHECK-NOT: error:

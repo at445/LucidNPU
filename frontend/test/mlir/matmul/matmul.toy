@@ -15,10 +15,11 @@ def main() {
   var r3 = a @ w;
   var r4 = v @ m;
   var r5 = m @ r;
+  return r1;
 }
 
 # CHECK: module {
-# CHECK: toy.func @main() {
+# CHECK: toy.func @main() -> tensor<2x2xf64> {
 # CHECK-DAG: toy.constant{{.*}}: tensor<2x2xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<2xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
@@ -28,4 +29,5 @@ def main() {
 # CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<2xf64>
 # CHECK: toy.matrix_mul {{.*}}: tensor<2xf64>, tensor<2x2xf64> -> tensor<2xf64>
 # CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2x3xf64> -> tensor<2x3xf64>
+# CHECK: toy.return %{{[0-9]+}} : tensor<2x2xf64>
 # CHECK-NOT: error:

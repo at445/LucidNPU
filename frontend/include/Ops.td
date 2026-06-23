@@ -124,6 +124,15 @@ def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {
 
     let arguments = (ins Variadic<F64Tensor>:$input);
     let assemblyFormat = "($input^ `:` type($input))? attr-dict";
+
+    // Allow building a ReturnOp with no return operand.
+    let builders = [
+        OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+    ];
+
+
+    // Indicate that additional verification for this operation is necessary.
+    //let hasVerifier = 1;
 }
 
 def FuncOp : Toy_Op<"func", [

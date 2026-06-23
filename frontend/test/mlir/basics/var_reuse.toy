@@ -1,6 +1,7 @@
 # RUN: lucid-c %s -emit=mlir 2>&1 | FileCheck %s
 #
 # Scalar / vector / matrix declarations plus same-shape element-wise reuse.
+# Return with expression: function result type inferred from return operand.
 
 def main() {
   var a = 1;
@@ -9,15 +10,17 @@ def main() {
   var d = b + b;
   var e = c - c;
   var f = a + a;
+  return f;
 }
 
 # CHECK: module {
-# CHECK: toy.func @main() {
+# CHECK: toy.func @main() -> tensor<f64> {
 # CHECK-DAG: toy.constant dense<1.000000e+00> : tensor<f64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3x2xf64>
 # CHECK: toy.add {{.*}}: tensor<3xf64>
 # CHECK: toy.sub {{.*}}: tensor<3x2xf64>
 # CHECK: toy.add {{.*}}: tensor<f64>
+# CHECK: toy.return %{{[0-9]+}} : tensor<f64>
 # CHECK-NOT: toy.matrix_mul
 # CHECK-NOT: error:
