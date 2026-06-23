@@ -7,6 +7,7 @@ set(${TARGET_NAME}_LIBS
     MLIRFunctionInterfaces
     MLIRInferTypeOpInterface
     MLIRIR
+    MLIRParser
     MLIRSideEffectInterfaces
     MLIRSupport
     MLIRTransforms
@@ -53,9 +54,10 @@ if(FILECHECK_EXECUTABLE)
         ${LUCID_C_TEST_DIR}/${suite_dir}
         ${emit_flag}
         ${mode})
-    set_tests_properties(${name} PROPERTIES LABELS "${label};frontend")
+    set_tests_properties(${name} PROPERTIES
+      LABELS "${label};frontend"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-    # ctest does not build lucid-c; this target does.
     add_custom_target(${name}-run
       COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}
               ${CMAKE_CTEST_COMMAND} --output-on-failure -R ${name}

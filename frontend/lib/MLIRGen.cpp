@@ -52,10 +52,9 @@ private:
             return;
 
         // Insert the formal parameters of the current function into the symbol table.
-        mlir::Block &entryBlock = function.getBody().front();
+        mlir::Block &entryBlock = function.front();
         auto protoArgs = functionAST.getProto()->getArgs();
-        for (const auto nameAndValue: 
-            llvm::zip(protoArgs, entryBlock.getArguments())) {
+        for (const auto nameAndValue: llvm::zip(protoArgs, entryBlock.getArguments())) {
             if (failed(declare(std::get<0>(nameAndValue)->getName(),
                          std::get<1>(nameAndValue))))
             return;

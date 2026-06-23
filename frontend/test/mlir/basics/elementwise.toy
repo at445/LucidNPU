@@ -10,7 +10,7 @@ def main() {
 }
 
 # CHECK: module {
-# CHECK: "toy.func"() <{sym_name = "main"}> ({
+# CHECK: toy.func @main() {
 # CHECK-DAG: toy.constant dense<1.000000e+00> : tensor<f64>
 # CHECK-DAG: toy.constant dense<2.000000e+00> : tensor<f64>
 # CHECK: toy.add {{.*}}: tensor<f64>

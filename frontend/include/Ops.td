@@ -126,11 +126,40 @@ def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {
     let assemblyFormat = "($input^ `:` type($input))? attr-dict";
 }
 
-def FuncOp : Toy_Op<"func"> {
+def FuncOp : Toy_Op<"func", [
+    FunctionOpInterface, IsolatedFromAbove
+  ]> {
     let summary = "user defined function operation";
-    let arguments = (ins SymbolNameAttr:$sym_name);
+
+    let arguments = (ins
+        SymbolNameAttr:$sym_name,
+        TypeAttrOf<FunctionType>:$function_type,
+        OptionalAttr<DictArrayAttr>:$arg_attrs,
+        OptionalAttr<DictArrayAttr>:$res_attrs
+    );
+
     let regions = (region AnyRegion:$body);
+
+    let builders = [OpBuilder<(ins
+        "StringRef":$name, "FunctionType":$type,
+        CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)
+    >];
+
+    let extraClassDeclaration = [{
+        //===------------------------------------------------------------------===//
+        // FunctionOpInterface Methods
+        //===------------------------------------------------------------------===//
+
+        /// Returns the argument types of this function.
+        ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+
+        /// Returns the result types of this function.
+        ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+
+        Region *getCallableRegion() { return &getBody(); }
+    }];
+
+    let hasCustomAssemblyFormat = 1;
     let skipDefaultBuilders = 1;
-    let builders = [OpBuilder<(ins "StringRef":$name, "FunctionType":$type)>];
 }
 #endif // TOY_OPS
