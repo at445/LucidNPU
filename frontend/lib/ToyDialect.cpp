@@ -16,6 +16,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/LogicalResult.h"
 #include <algorithm>
 #include <cstdint>
@@ -87,7 +88,9 @@ std::optional<RankedTensorType> inferMatmulResultType(RankedTensorType lhs,
     outShape.append(concat.begin(), concat.end());
     return RankedTensorType::get(outShape, elementType);
 } 
-
+//===----------------------------------------------------------------------===//
+// ConstantOp
+//===----------------------------------------------------------------------===//
 /// The 'OpAsmParser' class provides a collection of methods for parsing
 /// various punctuation, as well as attributes, operands, types, etc. Each of
 /// these methods returns a `ParseResult`. This class is a wrapper around
@@ -143,6 +146,37 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
     return mlir::success();
 }
 
+//===----------------------------------------------------------------------===//
+// ReturnOp
+//===----------------------------------------------------------------------===//
+::llvm::LogicalResult ReturnOp::verify() {
+    if (ReturnSize() > 1) {
+        return emitOpError(
+        llvm::formatv("The result type of return statement {0} \n \
+            can have at most one return value or none.",  getLoc()));
+    }
+
+    auto funcType = getParentOp().getFunctionType();
+    if (funcType.getResults().size() != ReturnSize())
+    {
+        return emitOpError(
+            llvm::formatv("return arity {0} on {1} does not match function result arity {2}.",  
+                getParentOp().getSymName(), getParentOp()->getLoc(), getLoc()));
+    }
+    
+    if ((ReturnSize() == 1) && (getOperandTypes().front() != funcType.getResults().front())) {
+        return emitOpError("The result type of return statement ") << getLoc() 
+            << "\n is not martched with the type of function " << getParentOp().getSymName() 
+            << " on " << getParentOp()->getLoc()
+            << "\n Type of return statement" << getOperandTypes().front()
+            << "\n Type of function return" << funcType.getResults().front();
+    }
+
+    return mlir::success();
+}
+//===----------------------------------------------------------------------===//
+// MatrixMulOp
+//===----------------------------------------------------------------------===//
 void MatrixMulOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
                       mlir::Value lhs, mlir::Value rhs) {
     auto lhsType = llvm::dyn_cast<mlir::RankedTensorType>(lhs.getType());

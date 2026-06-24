@@ -10,19 +10,24 @@
 #include "mlir/IR/Value.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/Support/LLVM.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LogicalResult.h"
+#include <cstddef>
 #include <functional>
 #include <numeric>
 #include <optional>
 #include <vector>
+#include <iostream>
 using namespace lucid_frontend;
 namespace {
 class MLIRGenImpl {
@@ -42,14 +47,19 @@ public:
     }
 
 private:
+    llvm::StringMap<::mlir::toy::FuncOp> FunctionDecl;
+
     void mlirGen(const FunctionAST& functionAST) {
         // create a symbolTable for function scope
         llvm::ScopedHashTableScope<llvm::StringRef, mlir::Value> funScope(m_symbolTable);
         auto proto = functionAST.getProto();
+
+        m_builder.setInsertionPointToEnd(m_module.getBody());
         // Create an MLIR function for the given prototype.
         mlir::toy::FuncOp function = mlirGen(*proto);
         if (!function)
             return;
+        FunctionDecl.insert({function.getSymName(), function});
 
         // Insert the formal parameters of the current function into the symbol table.
         mlir::Block &entryBlock = function.front();
@@ -66,13 +76,14 @@ private:
                 return;
         }
         
-        mlir::toy::ReturnOp returnOp;
+        mlir::toy::ReturnOp returnOp = nullptr;
         if (!entryBlock.empty())
             returnOp = llvm::dyn_cast<mlir::toy::ReturnOp>(entryBlock.back());
         
         // Implicit void return if the function body didn't end with return.
         if (!returnOp) {
             returnOp = m_builder.create<mlir::toy::ReturnOp>(locConvert(proto->loc()));
+            return;
         }
 
         // change the function result type base on return op type
@@ -100,11 +111,26 @@ private:
             return mlirGen(llvm::cast<VarDeclStmtAST>(stmt));
         case StmtAST::Stmt_Return:
             return mlirGen(llvm::cast<ReturnStmtAST>(stmt));
+        case StmtAST::Stmt_Expr:
+            return mlirGen(llvm::cast<ExprStmtAST>(stmt));
         default:
             mlir::emitError(locConvert(stmt.loc()))
                 << "MLIR codegen encountered an unhandled statement kind '"
                 << llvm::Twine(stmt.getKind()) << "'";
             return mlir::failure();
+        }
+    }
+
+    mlir::LogicalResult mlirGen(const ExprStmtAST &exprStmtAst) {
+        switch (exprStmtAst.getExpr()->getKind()) {
+            case ExprAST::Expr_Call:
+            case ExprAST::Expr_Print:
+                mlirGen(*exprStmtAst.getExpr());
+                return mlir::success();
+            default:
+                mlir::emitError(locConvert(exprStmtAst.loc())) <<
+                    "Function calls without side effects are not permitted.";
+                return mlir::failure();
         }
     }
 
@@ -142,6 +168,12 @@ private:
             return mlirGen(llvm::cast<VariableExprAST>(expr));
         case ExprAST::Expr_BinOp:
             return mlirGen(llvm::cast<BinaryExprAST>(expr));
+        case ExprAST::Expr_Call:
+            return mlirGen(llvm::cast<CallExprAST>(expr));
+        case ExprAST::Expr_Print:
+            return mlirGen(llvm::cast<PrintExprAST>(expr));
+        case ExprAST::Expr_Transpose:
+            return mlirGen(llvm::cast<TransposeExprAST>(expr));
         default:
             mlir::emitError(locConvert(expr.loc()))
                 << "MLIR codegen encountered an unhandled expr kind '"
@@ -149,6 +181,40 @@ private:
             return nullptr;
         }
     }
+
+    mlir::Value mlirGen(const PrintExprAST &printExpr) {
+        auto value = mlirGen(*printExpr.getArg());
+        if (!value) return nullptr;
+        m_builder.create<mlir::toy::PrintOp>(locConvert(printExpr.loc()), value);
+        return nullptr;
+    } 
+
+    mlir::Value mlirGen(const TransposeExprAST &transExpr) {
+        auto value = mlirGen(*transExpr.getArg());
+        if (!value) return nullptr;
+        
+        return m_builder.create<mlir::toy::TransposeOp>(locConvert(transExpr.loc()), value);
+    } 
+
+    mlir::Value mlirGen(const CallExprAST &callExpr) {
+        auto it = FunctionDecl.find(callExpr.getCallee());
+        if (it == FunctionDecl.end()) {
+            mlir::emitError(locConvert(callExpr.loc()))
+                << "no defined function found for '" << callExpr.getCallee() << "'";
+        }
+        llvm::SmallVector<mlir::Value, 4> values;
+        for (auto & arg: callExpr.getArgs()) {
+            auto val = mlirGen(*arg);
+            if (!val) return nullptr;
+            values.push_back(val);
+        }
+        return m_builder.create<mlir::toy::GenericCallOp>(
+            locConvert(callExpr.loc()), 
+            it->second.getFunctionType().getResult(0),
+            callExpr.getCallee(), 
+            values);
+    } 
+
 
     mlir::Value mlirGen(const BinaryExprAST &binaryExpr) {
         auto lhs = mlirGen(*binaryExpr.getLHS());

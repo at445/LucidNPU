@@ -41,6 +41,7 @@ _deps/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/gdb
 .cache/
 
 # CLion / IntelliJ

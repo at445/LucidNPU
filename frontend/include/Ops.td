@@ -119,7 +119,7 @@ def MatrixMulOp : Toy_Op<"matrix_mul", [Pure]> {
     let hasVerifier = 1;
 }
 
-def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {
+def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">, Terminator]> {
     let summary = "return operation";
 
     let arguments = (ins Variadic<F64Tensor>:$input);
@@ -130,9 +130,15 @@ def ReturnOp : Toy_Op<"return", [HasParent<"FuncOp">, Terminator]> {
         OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
     ];
 
+    let extraClassDeclaration = [{
+        /// return the number of operand in this return Op
+        int64_t ReturnSize() {return getOperandTypes().size();}
+    }];
+
+
 
     // Indicate that additional verification for this operation is necessary.
-    //let hasVerifier = 1;
+    let hasVerifier = 1;
 }
 
 def FuncOp : Toy_Op<"func", [
@@ -165,10 +171,82 @@ def FuncOp : Toy_Op<"func", [
         /// Returns the result types of this function.
         ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
 
+        /// Returns the number of result in this function.
+        int64_t ReturnSize() {return getFunctionType().getResults().size();}
+
         Region *getCallableRegion() { return &getBody(); }
     }];
 
     let hasCustomAssemblyFormat = 1;
     let skipDefaultBuilders = 1;
+}
+
+def GenericCallOp : Toy_Op<"generic_call"> {
+  let summary = "generic call operation";
+  let description = [{
+    Generic calls represent calls to a user defined function that needs to
+    be specialized for the shape of its arguments. The callee name is attached
+    as a symbol reference via an attribute. The arguments list must match the
+    arguments expected by the callee. For example:
+
+    ```mlir
+     %4 = toy.generic_call @my_func(%1, %3)
+           : (tensor<2x3xf64>, tensor<2x3xf64>) -> tensor<*xf64>
+    ```
+
+    This is only valid if a function named "my_func" exists and takes two
+    arguments.
+  }];
+
+  // The generic call operation takes a symbol reference attribute as the
+  // callee, and inputs for the call.
+  let arguments = (ins FlatSymbolRefAttr:$callee, Variadic<F64Tensor>:$inputs);
+
+  // The generic call operation returns a single value of TensorType.
+  let results = (outs F64Tensor);
+
+  // Specialize assembly printing and parsing using a declarative format.
+  let assemblyFormat = [{
+    $callee `(` $inputs `)` attr-dict `:` functional-type($inputs, results)
+  }];
+
+  // Add custom build methods for the generic call operation.
+  let builders = [
+    OpBuilder<(ins "StringRef":$callee, "ArrayRef<Value>":$arguments)>
+  ];
+}
+
+def PrintOp : Toy_Op<"print"> {
+  let summary = "print operation";
+  let description = [{
+    The "print" builtin operation prints a given input tensor, and produces
+    no results.
+  }];
+
+  // The print operation takes an input tensor to print.
+  let arguments = (ins F64Tensor:$input);
+  
+  let assemblyFormat = "$input attr-dict `:` type($input)";
+}
+
+def TransposeOp : Toy_Op<"transpose"> {
+  let summary = "transpose operation";
+
+  let arguments = (ins F64Tensor:$input);
+  let results = (outs F64Tensor);
+
+  let assemblyFormat = [{
+    `(` $input `:` type($input) `)` attr-dict `to` type(results)
+  }];
+
+  // Allow building a TransposeOp with from the input operand.
+  let builders = [
+    OpBuilder<(ins "Value":$input), [{
+            build($_builder, $_state, input.getType(), input);
+        }]>,
+  ];
+
+  // Invoke a static verify method to verify this transpose operation.
+  //let hasVerifier = 1;
 }
 #endif // TOY_OPS

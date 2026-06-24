@@ -13,23 +13,14 @@
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "miDebuggerArgs": "-ix ${workspaceFolder}/.vscode/gdb/init.gdb",
             "stopAtEntry": false,
             "externalConsole": false,
             "preLaunchTask": "Build lucid-c (Debug)",
             "setupCommands": [
                 {
-                    "description": "Enable GDB pretty-printing",
+                    "description": "Enable libstdc++ pretty-printing",
                     "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Skip stepping into LLVM/MLIR sources",
-                    "text": "-exec skip -rf ${env:HOME}/llvm-project",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Skip stepping into libstdc++ headers",
-                    "text": "-exec skip -rf /usr/include/c++",
                     "ignoreFailures": true
                 }
             ]
