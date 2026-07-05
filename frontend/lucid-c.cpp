@@ -10,6 +10,8 @@
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 using namespace lucid_frontend;
 namespace cl = llvm::cl;
@@ -28,6 +30,8 @@ static cl::opt<enum Action> emitAction( "emit",
                                         cl::values(clEnumValN(DumpMLIR, "mlir", "dump MLIR"))
                                     );
 
+static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
+
 /// Returns a lucid_frontend AST resulting from parsing the file or a nullptr on error.
 static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
   static llvm::BumpPtrAllocator allocator;
@@ -44,7 +48,8 @@ static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
 }
 
 int main(int argc, char **argv) {
-    cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to .mlir file");
+    mlir::registerPassManagerCLOptions();
+    cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to Toy dialect format");
     
     auto moduleAST = parseInputFile(inputFileName);
     
@@ -65,6 +70,17 @@ int main(int argc, char **argv) {
             if (!module) {
                 llvm::errs() << "MLIR generation failed\n";
                 return 1;
+            }
+            if (enableOpt) {
+                mlir::PassManager pm(module.get()->getName());
+                // Apply any generic pass manager command line options and run the pipeline.
+                if (mlir::failed(mlir::applyPassManagerCLOptions(pm))) return 4;
+
+                // Add a run of the canonicalizer to optimize the mlir module.
+                pm.addNestedPass<mlir::toy::FuncOp>(mlir::createCanonicalizerPass());
+                pm.addNestedPass<mlir::ModuleOp>(mlir::createSymbolDCEPass());
+
+                if (mlir::failed(pm.run(*module))) return 4;
             }
             module->print(llvm::outs());
             llvm::outs() << "\n";

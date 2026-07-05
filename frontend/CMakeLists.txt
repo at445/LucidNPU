@@ -13,6 +13,10 @@ set(${TARGET_NAME}_LIBS
     MLIRTransforms
 )
 
+set(LLVM_TARGET_DEFINITIONS lib/ToyCombine.td)
+mlir_tablegen(ToyCombine.inc -gen-rewriters)
+add_public_tablegen_target(ToyDialectCombineIncGen)
+
 add_llvm_executable(${TARGET_NAME}
     lib/ASTDumper.cpp
     lib/MLIRGen.cpp
@@ -20,7 +24,11 @@ add_llvm_executable(${TARGET_NAME}
     lucid-c.cpp
 )
 
-add_dependencies(${TARGET_NAME} ToyOpsIncGen)
+add_dependencies(
+    ${TARGET_NAME} 
+    ToyDialectAndOpsIncGen
+    ToyDialectCombineIncGen
+    )
 
 llvm_update_compile_flags(${TARGET_NAME})
 
@@ -31,6 +39,7 @@ endif()
 target_include_directories(${TARGET_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(${TARGET_NAME} PRIVATE ${${TARGET_NAME}_LIBS})
 
@@ -50,6 +59,9 @@ if(FILECHECK_EXECUTABLE)
   function(add_lucid_c_suite name emit_flag test_dir)
     set(suite_root ${LUCID_C_TEST_DIR}/${test_dir})
     file(GLOB_RECURSE suite_tests CONFIGURE_DEPENDS "${suite_root}/*.toy")
+    if(test_dir STREQUAL "mlir")
+      list(FILTER suite_tests EXCLUDE REGEX "/opt/")
+    endif()
     list(SORT suite_tests)
 
     if(NOT suite_tests)
@@ -92,6 +104,7 @@ if(FILECHECK_EXECUTABLE)
 
   add_lucid_c_suite(ASTDumpSuite -emit=ast ast)
   add_lucid_c_suite(MLIRDumpSuite -emit=mlir mlir)
+  add_lucid_c_suite(MLIROptSuite "-emit=mlir -opt" mlir/opt)
   add_lucid_c_suite(ErrorSuite -emit=mlir error)
 
   add_custom_target(check-frontend

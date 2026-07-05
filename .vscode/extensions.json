@@ -1,6 +1,6 @@
 {
     "recommendations": [
         "llvm-vs-code-extensions.vscode-clangd",
-        "ms-vscode.cpptools"
+        "vadimcn.vscode-lldb"
     ]
 }

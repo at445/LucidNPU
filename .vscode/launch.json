@@ -3,26 +3,19 @@
     "configurations": [
         {
             "name": "Debug lucid-c",
-            "type": "cppdbg",
+            "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/lucid-c",
             "args": [
                 "${workspaceFolder}/frontend/test/test.toy",
-                "-emit=mlir"
+                "-emit=mlir",
+                "-opt"
             ],
             "cwd": "${workspaceFolder}",
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "miDebuggerArgs": "-ix ${workspaceFolder}/.vscode/gdb/init.gdb",
-            "stopAtEntry": false,
-            "externalConsole": false,
             "preLaunchTask": "Build lucid-c (Debug)",
-            "setupCommands": [
-                {
-                    "description": "Enable libstdc++ pretty-printing",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
+            "initCommands": [
+                "command source ${workspaceFolder}/.vscode/lldb/init.lldb",
+                "command script import ${env:HOME}/llvm-project/mlir/utils/lldb-scripts/mlirDataFormatters.py"
             ]
         }
     ]

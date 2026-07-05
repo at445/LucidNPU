@@ -18,6 +18,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/LogicalResult.h"
+#include "mlir/IR/PatternMatch.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -274,6 +275,21 @@ void FuncOp::print(mlir::OpAsmPrinter &p) {
     mlir::function_interface_impl::printFunctionOp(
     p, *this, /*isVariadic=*/false, getFunctionTypeAttrName(),
     getArgAttrsAttrName(), getResAttrsAttrName());
+}
+
+namespace {
+    /// Include the patterns defined in the Declarative Rewrite framework.
+    #include "ToyCombine.inc"
+} // namespace
+
+void TransposeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mlir::MLIRContext* context) {
+    results.add<TransposeTransposeOptPattern>(context);
+}
+
+void ReshapeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mlir::MLIRContext* context) {
+    results.add<ReshapeReshapeOptPattern>(context);
+    results.add<RedundantReshapeOptPattern>(context);
+    results.add<FoldReshapeConstantOptPattern>(context);
 }
 
 #define GET_OP_CLASSES
