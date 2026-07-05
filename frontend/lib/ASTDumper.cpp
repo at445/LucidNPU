@@ -42,7 +42,7 @@ void ASTDumper::visitModule(ModuleAST *module) {
 void ASTDumper::visitVarDecl(VarDeclStmtAST *stmt) {
   INDENT();
   llvm::errs() << "VarDecl " << stmt->getName();
-  llvm::errs() << " ";
+  llvm::errs() << ": ";
   printType(stmt->getType());
   llvm::errs() << " " << loc(stmt) << "\n";
 

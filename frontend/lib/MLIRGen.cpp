@@ -148,6 +148,12 @@ private:
             return mlir::failure();
         }
 
+        auto typ = varDeclAst.getType();
+        if(typ && *typ) {
+            value = m_builder.create<mlir::toy::ReshapeOp>(
+                locConvert(varDeclAst.loc()),  typeConvert(**typ), value);
+        }
+
         if (failed(declare(varDeclAst.getName(), value))) {
             mlir::emitError(locConvert(varDeclAst.loc()),
                             "duplicated name used");
@@ -219,7 +225,6 @@ private:
     mlir::Value mlirGen(const BinaryExprAST &binaryExpr) {
         auto lhs = mlirGen(*binaryExpr.getLHS());
         auto rhs = mlirGen(*binaryExpr.getRHS());
-        auto type = lhs.getType();
         auto op = binaryExpr.getOp();
         auto loc = locConvert(binaryExpr.loc());
         switch (op) {

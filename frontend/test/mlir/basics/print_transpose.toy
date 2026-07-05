@@ -13,7 +13,7 @@ def main() {
 # CHECK: toy.func @main() {
 # CHECK-NOT: toy.func @main() ->
 # CHECK: toy.constant{{.*}}: tensor<2x3xf64>
-# CHECK: toy.transpose(%{{[0-9]+}} : tensor<2x3xf64>) to tensor<2x3xf64>
+# CHECK: toy.transpose %{{[0-9]+}} : tensor<2x3xf64> to tensor<2x3xf64>
 # CHECK: toy.print %{{[0-9]+}} : tensor<2x3xf64>
 # CHECK: toy.print %{{[0-9]+}} : tensor<2x3xf64>
 # CHECK: toy.return

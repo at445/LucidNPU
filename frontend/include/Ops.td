@@ -119,6 +119,18 @@ def MatrixMulOp : Toy_Op<"matrix_mul", [Pure]> {
     let hasVerifier = 1;
 }
 
+def ReshapeOp : Toy_Op<"reshape", [Pure]> {
+    let summary = "Rewrite data shapes according to target types";
+
+    let arguments = (ins F64Tensor:$input);
+
+    let results = (outs F64Tensor);
+
+    let assemblyFormat = "$input `:` type($input) attr-dict `->` type(results)";
+
+    let hasVerifier = 1;
+}
+
 def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">, Terminator]> {
     let summary = "return operation";
 
@@ -236,7 +248,7 @@ def TransposeOp : Toy_Op<"transpose"> {
   let results = (outs F64Tensor);
 
   let assemblyFormat = [{
-    `(` $input `:` type($input) `)` attr-dict `to` type(results)
+    $input `:` type($input) attr-dict `to` type(results)
   }];
 
   // Allow building a TransposeOp with from the input operand.

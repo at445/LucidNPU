@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
+#include <numeric>
 #include <optional>
 #include <string>
 using namespace mlir;
@@ -213,6 +215,28 @@ void MatrixMulOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
     if (*inferred != resultType)
         return emitOpError("result type ") << resultType
             << " does not match inferred type " << *inferred;
+    return mlir::success();
+}
+
+::llvm::LogicalResult ReshapeOp::verify() {
+    auto argTyp = mlir::dyn_cast<RankedTensorType>(getInput().getType());
+    auto retType = mlir::dyn_cast<RankedTensorType>(getResult().getType());
+    
+    if (argTyp && retType) { // Netheir of them is unranked type 
+        if (argTyp.hasStaticShape() && retType.hasStaticShape()) { // Both are fully static types. 
+            auto argShape = argTyp.getShape();
+            auto retShape = retType.getShape();
+            auto argSize = std::accumulate(argShape.begin(), argShape.end(), 
+                1, std::multiplies<int64_t>());
+            auto retSize = std::accumulate(retShape.begin(), retShape.end(), 
+                1, std::multiplies<int64_t>());
+            if (argSize != retSize) {
+                return emitOpError("incompatible reshape: ")
+                    << "\n" << argTyp << " reshape to " << retType;
+            }
+        }
+    } 
+
     return mlir::success();
 }
 
