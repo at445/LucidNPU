@@ -29,12 +29,13 @@
 using namespace mlir;
 using namespace toy;
 #include "Dialect.cpp.inc"
-
+#include "ToyInlineInterface.hpp"
 void ToyDialect::initialize() {
     addOperations<
         #define GET_OP_LIST
         #include "Ops.cpp.inc"
     >();
+    addInterface<lucid_frontend::ToyInlinerInterface>();
 }
 void ConstantOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, double value) {
     auto dataType = RankedTensorType::get({}, odsBuilder.getF64Type());
@@ -177,6 +178,8 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
 
     return mlir::success();
 }
+
+
 //===----------------------------------------------------------------------===//
 // MatrixMulOp
 //===----------------------------------------------------------------------===//
@@ -277,6 +280,30 @@ void FuncOp::print(mlir::OpAsmPrinter &p) {
     getArgAttrsAttrName(), getResAttrsAttrName());
 }
 
+/// Return the callee of the generic call operation, this is required by the
+/// call interface.
+CallInterfaceCallable GenericCallOp::getCallableForCallee() {
+  return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+}
+
+/// Set the callee for the generic call operation, this is required by the call
+/// interface.
+void GenericCallOp::setCalleeFromCallable(CallInterfaceCallable callee) {
+  (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+}
+
+/// Get the argument operands to the called function, this is required by the
+/// call interface.
+Operation::operand_range GenericCallOp::getArgOperands() { 
+    return getInputs(); 
+}
+
+/// Get the argument operands to the called function as a mutable range, this is
+/// required by the call interface.
+MutableOperandRange GenericCallOp::getArgOperandsMutable() {
+  return getInputsMutable();
+}
+
 namespace {
     /// Include the patterns defined in the Declarative Rewrite framework.
     #include "ToyCombine.inc"
@@ -290,6 +317,20 @@ void ReshapeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mli
     results.add<ReshapeReshapeOptPattern>(context);
     results.add<RedundantReshapeOptPattern>(context);
     results.add<FoldReshapeConstantOptPattern>(context);
+}
+
+bool CastOp::areCastCompatible(::mlir::TypeRange inputs, ::mlir::TypeRange outputs) {
+    if (inputs.size() != outputs.size()) return false;
+    return llvm::all_of(llvm::zip(inputs, outputs), [](auto pair){
+        auto [input, output] = pair;
+        TensorType intyp = llvm::cast<TensorType>(input);
+        TensorType outtyp = llvm::cast<TensorType>(output);
+        if (!intyp || !outtyp || intyp.getElementType() != outtyp.getElementType())
+            return false;
+        if (!intyp.hasRank() || !outtyp.hasRank()) 
+            return true;
+        return intyp == outtyp;
+    });
 }
 
 #define GET_OP_CLASSES

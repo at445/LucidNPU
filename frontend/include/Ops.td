@@ -18,6 +18,7 @@ include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/CastInterfaces.td"
 
 // Provide a definition of the 'toy' dialect in the ODS framework so that we
 // can define our operations.
@@ -155,9 +156,9 @@ def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">, Terminator]> {
     let hasVerifier = 1;
 }
 
-def FuncOp : Toy_Op<"func", [
-    FunctionOpInterface, IsolatedFromAbove
-  ]> {
+def FuncOp : Toy_Op<"func", 
+  [FunctionOpInterface, IsolatedFromAbove]> 
+{
     let summary = "user defined function operation";
 
     let arguments = (ins
@@ -195,7 +196,9 @@ def FuncOp : Toy_Op<"func", [
     let skipDefaultBuilders = 1;
 }
 
-def GenericCallOp : Toy_Op<"generic_call"> {
+def GenericCallOp : Toy_Op<"generic_call",
+  [DeclareOpInterfaceMethods<CallOpInterface>]> 
+{
   let summary = "generic call operation";
   let description = [{
     Generic calls represent calls to a user defined function that needs to
@@ -223,11 +226,6 @@ def GenericCallOp : Toy_Op<"generic_call"> {
   let assemblyFormat = [{
     $callee `(` $inputs `)` attr-dict `:` functional-type($inputs, results)
   }];
-
-  // Add custom build methods for the generic call operation.
-  let builders = [
-    OpBuilder<(ins "StringRef":$callee, "ArrayRef<Value>":$arguments)>
-  ];
 }
 
 def PrintOp : Toy_Op<"print"> {
@@ -264,5 +262,16 @@ def TransposeOp : Toy_Op<"transpose",[Pure]> {
 
   // Invoke a static verify method to verify this transpose operation.
   //let hasVerifier = 1;
+}
+
+def CastOp : Toy_Op< "cast", 
+[DeclareOpInterfaceMethods<CastOpInterface>, Pure, SameOperandsAndResultShape]> {
+  let summary = "shape cast operation";
+
+  let arguments = (ins F64Tensor:$input);
+
+  let results = (outs F64Tensor);
+
+  let assemblyFormat = "$input attr-dict `:` type($input) `to` type(results)";
 }
 #endif // TOY_OPS

@@ -11,6 +11,7 @@ set(${TARGET_NAME}_LIBS
     MLIRSideEffectInterfaces
     MLIRSupport
     MLIRTransforms
+    MLIRCastInterfaces
 )
 
 set(LLVM_TARGET_DEFINITIONS lib/ToyCombine.td)

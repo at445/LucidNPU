@@ -76,9 +76,13 @@ int main(int argc, char **argv) {
                 // Apply any generic pass manager command line options and run the pipeline.
                 if (mlir::failed(mlir::applyPassManagerCLOptions(pm))) return 4;
 
+                pm.addPass(mlir::createInlinerPass());
+
+                // Now that there is only one function, we can infer the shapes of each of
+                // the operations.
+                mlir::OpPassManager &optPM = pm.nest<mlir::toy::FuncOp>();
                 // Add a run of the canonicalizer to optimize the mlir module.
-                pm.addNestedPass<mlir::toy::FuncOp>(mlir::createCanonicalizerPass());
-                pm.addNestedPass<mlir::ModuleOp>(mlir::createSymbolDCEPass());
+                optPM.addPass(mlir::createCanonicalizerPass());
 
                 if (mlir::failed(pm.run(*module))) return 4;
             }

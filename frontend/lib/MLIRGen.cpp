@@ -57,8 +57,13 @@ private:
         m_builder.setInsertionPointToEnd(m_module.getBody());
         // Create an MLIR function for the given prototype.
         mlir::toy::FuncOp function = mlirGen(*proto);
-        if (!function)
+        if (!function) 
             return;
+        
+        // Set all non-main functions to private so that the subsequent inline operation can be performed.
+        if (proto->getName() != "main") 
+            function.setPrivate();
+
         FunctionDecl.insert({function.getSymName(), function});
 
         // Insert the formal parameters of the current function into the symbol table.
