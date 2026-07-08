@@ -14,17 +14,18 @@
 #define TOY_OPS
 
 include "mlir/IR/OpBase.td"
-include "mlir/Interfaces/InferTypeOpInterface.td" 
+include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/CastInterfaces.td"
+include "ShapeInfrencceOpInterface.td"
 
 // Provide a definition of the 'toy' dialect in the ODS framework so that we
 // can define our operations.
 def Toy_Dialect : Dialect {
   let name = "toy";
-  let cppNamespace = "::mlir::toy";
+  let cppNamespace = "::lucid_frontend";
 }
 
 // Base class for toy dialect operations. This operation inherits from the base
@@ -52,7 +53,7 @@ def ConstantOp : Toy_Op<"constant", [Pure]> {
 
     let builders = [
         // Build a constant with a given constant tensor value.
-        OpBuilder<(ins "DenseElementsAttr":$value), [{
+        OpBuilder<(ins "::mlir::DenseElementsAttr":$value), [{
             build($_builder, $_state, value.getType(), value);
         }]>,
 
@@ -103,7 +104,7 @@ def DivOp : Toy_Op<"div", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def MatrixMulOp : Toy_Op<"matrix_mul", [Pure]> {
+def MatrixMulOp : Toy_Op<"matrix_mul", [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
     let summary = "matrix multiplication operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -113,7 +114,7 @@ def MatrixMulOp : Toy_Op<"matrix_mul", [Pure]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 
     let builders = [
-        OpBuilder<(ins "Value":$lhs, "Value":$rhs)>
+        OpBuilder<(ins "::mlir::Value":$lhs, "::mlir::Value":$rhs)>
     ];
 
     // Indicate that additional verification for this operation is necessary.
@@ -171,8 +172,8 @@ def FuncOp : Toy_Op<"func",
     let regions = (region AnyRegion:$body);
 
     let builders = [OpBuilder<(ins
-        "StringRef":$name, "FunctionType":$type,
-        CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)
+        "::llvm::StringRef":$name, "::mlir::FunctionType":$type,
+        CArg<"::llvm::ArrayRef<::mlir::NamedAttribute>", "{}">:$attrs)
     >];
 
     let extraClassDeclaration = [{
@@ -181,15 +182,15 @@ def FuncOp : Toy_Op<"func",
         //===------------------------------------------------------------------===//
 
         /// Returns the argument types of this function.
-        ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+        ::llvm::ArrayRef<::mlir::Type> getArgumentTypes() { return getFunctionType().getInputs(); }
 
         /// Returns the result types of this function.
-        ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+        ::llvm::ArrayRef<::mlir::Type> getResultTypes() { return getFunctionType().getResults(); }
 
         /// Returns the number of result in this function.
         int64_t ReturnSize() {return getFunctionType().getResults().size();}
 
-        Region *getCallableRegion() { return &getBody(); }
+        ::mlir::Region *getCallableRegion() { return &getBody(); }
     }];
 
     let hasCustomAssemblyFormat = 1;
@@ -241,7 +242,8 @@ def PrintOp : Toy_Op<"print"> {
   let assemblyFormat = "$input attr-dict `:` type($input)";
 }
 
-def TransposeOp : Toy_Op<"transpose",[Pure]> {
+def TransposeOp : Toy_Op<"transpose",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "transpose operation";
 
   let arguments = (ins F64Tensor:$input);
@@ -251,12 +253,12 @@ def TransposeOp : Toy_Op<"transpose",[Pure]> {
     $input `:` type($input) attr-dict `to` type(results)
   }];
 
-  // Allow building a TransposeOp with from the input operand.
-  let builders = [
-    OpBuilder<(ins "Value":$input), [{
-            build($_builder, $_state, input.getType(), input);
+      let builders = [
+        // Build a constant with a given constant tensor value.
+        OpBuilder<(ins "::mlir::Value":$value), [{
+            build($_builder, $_state, value.getType(), value);
         }]>,
-  ];
+    ];
 
   let hasCanonicalizer = 1;
 
@@ -265,7 +267,9 @@ def TransposeOp : Toy_Op<"transpose",[Pure]> {
 }
 
 def CastOp : Toy_Op< "cast", 
-[DeclareOpInterfaceMethods<CastOpInterface>, Pure, SameOperandsAndResultShape]> {
+                    [DeclareOpInterfaceMethods<CastOpInterface>,
+                     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+                     Pure, SameOperandsAndResultShape]> {
   let summary = "shape cast operation";
 
   let arguments = (ins F64Tensor:$input);

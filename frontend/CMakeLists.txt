@@ -1,4 +1,4 @@
-add_subdirectory(include)
+add_subdirectory(td)
 
 set(TARGET_NAME lucid-c)
 
@@ -14,10 +14,6 @@ set(${TARGET_NAME}_LIBS
     MLIRCastInterfaces
 )
 
-set(LLVM_TARGET_DEFINITIONS lib/ToyCombine.td)
-mlir_tablegen(ToyCombine.inc -gen-rewriters)
-add_public_tablegen_target(ToyDialectCombineIncGen)
-
 add_llvm_executable(${TARGET_NAME}
     lib/ASTDumper.cpp
     lib/MLIRGen.cpp
@@ -25,14 +21,8 @@ add_llvm_executable(${TARGET_NAME}
     lucid-c.cpp
 )
 
-add_dependencies(
-    ${TARGET_NAME} 
-    ToyDialectAndOpsIncGen
-    ToyDialectCombineIncGen
-    )
-
+add_dependencies(${TARGET_NAME}  ToyDialectIncGen)
 llvm_update_compile_flags(${TARGET_NAME})
-
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(${TARGET_NAME} PRIVATE -O0 -ggdb3 -fno-inline)
 endif()
@@ -40,7 +30,7 @@ endif()
 target_include_directories(${TARGET_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/include
-    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/td
 )
 target_link_libraries(${TARGET_NAME} PRIVATE ${${TARGET_NAME}_LIBS})
 

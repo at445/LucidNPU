@@ -47,7 +47,7 @@ public:
     }
 
 private:
-    llvm::StringMap<::mlir::toy::FuncOp> FunctionDecl;
+    llvm::StringMap<::lucid_frontend::FuncOp> FunctionDecl;
 
     void mlirGen(const FunctionAST& functionAST) {
         // create a symbolTable for function scope
@@ -56,7 +56,7 @@ private:
 
         m_builder.setInsertionPointToEnd(m_module.getBody());
         // Create an MLIR function for the given prototype.
-        mlir::toy::FuncOp function = mlirGen(*proto);
+        lucid_frontend::FuncOp function = mlirGen(*proto);
         if (!function) 
             return;
         
@@ -81,13 +81,13 @@ private:
                 return;
         }
         
-        mlir::toy::ReturnOp returnOp = nullptr;
+        lucid_frontend::ReturnOp returnOp = nullptr;
         if (!entryBlock.empty())
-            returnOp = llvm::dyn_cast<mlir::toy::ReturnOp>(entryBlock.back());
+            returnOp = llvm::dyn_cast<lucid_frontend::ReturnOp>(entryBlock.back());
         
         // Implicit void return if the function body didn't end with return.
         if (!returnOp) {
-            returnOp = m_builder.create<mlir::toy::ReturnOp>(locConvert(proto->loc()));
+            returnOp = m_builder.create<lucid_frontend::ReturnOp>(locConvert(proto->loc()));
             return;
         }
 
@@ -102,9 +102,9 @@ private:
             mlir::Value expr = mlirGen(**returnAST.getExpr());
             if (!expr)
                 return mlir::failure();
-            m_builder.create<mlir::toy::ReturnOp>(loc, expr);
+            m_builder.create<lucid_frontend::ReturnOp>(loc, expr);
         } else {
-            m_builder.create<mlir::toy::ReturnOp>(loc, mlir::ValueRange{});
+            m_builder.create<lucid_frontend::ReturnOp>(loc, mlir::ValueRange{});
         }
         return mlir::success();
     }
@@ -155,7 +155,7 @@ private:
 
         auto typ = varDeclAst.getType();
         if(typ && *typ) {
-            value = m_builder.create<mlir::toy::ReshapeOp>(
+            value = m_builder.create<lucid_frontend::ReshapeOp>(
                 locConvert(varDeclAst.loc()),  typeConvert(**typ), value);
         }
 
@@ -196,7 +196,7 @@ private:
     mlir::Value mlirGen(const PrintExprAST &printExpr) {
         auto value = mlirGen(*printExpr.getArg());
         if (!value) return nullptr;
-        m_builder.create<mlir::toy::PrintOp>(locConvert(printExpr.loc()), value);
+        m_builder.create<lucid_frontend::PrintOp>(locConvert(printExpr.loc()), value);
         return nullptr;
     } 
 
@@ -204,7 +204,7 @@ private:
         auto value = mlirGen(*transExpr.getArg());
         if (!value) return nullptr;
         
-        return m_builder.create<mlir::toy::TransposeOp>(locConvert(transExpr.loc()), value);
+        return m_builder.create<lucid_frontend::TransposeOp>(locConvert(transExpr.loc()), value);
     } 
 
     mlir::Value mlirGen(const CallExprAST &callExpr) {
@@ -219,7 +219,7 @@ private:
             if (!val) return nullptr;
             values.push_back(val);
         }
-        return m_builder.create<mlir::toy::GenericCallOp>(
+        return m_builder.create<lucid_frontend::GenericCallOp>(
             locConvert(callExpr.loc()), 
             it->second.getFunctionType().getResult(0),
             callExpr.getCallee(), 
@@ -234,15 +234,15 @@ private:
         auto loc = locConvert(binaryExpr.loc());
         switch (op) {
             case '+':
-                return m_builder.create<mlir::toy::AddOp>(loc, lhs, rhs);
+                return m_builder.create<lucid_frontend::AddOp>(loc, lhs, rhs);
             case '-':
-                return m_builder.create<mlir::toy::SubOp>(loc, lhs, rhs);
+                return m_builder.create<lucid_frontend::SubOp>(loc, lhs, rhs);
             case '*':
-                return m_builder.create<mlir::toy::MulOp>(loc, lhs, rhs);
+                return m_builder.create<lucid_frontend::MulOp>(loc, lhs, rhs);
             case '/':
-                return m_builder.create<mlir::toy::DivOp>(loc, lhs, rhs);
+                return m_builder.create<lucid_frontend::DivOp>(loc, lhs, rhs);
             case '@':
-                return m_builder.create<mlir::toy::MatrixMulOp>(loc, lhs, rhs);
+                return m_builder.create<lucid_frontend::MatrixMulOp>(loc, lhs, rhs);
             default:
                 llvm_unreachable("unknown binary op");
         }
@@ -258,8 +258,8 @@ private:
     }
 
     mlir::Value mlirGen(const NumberExprAST &number) {
-        auto loc = number.loc();
-        return m_builder.create<mlir::toy::ConstantOp>(locConvert(number.loc()),  number.getValue());
+        auto loc = locConvert(number.loc());
+        return m_builder.create<lucid_frontend::ConstantOp>(loc,  number.getValue());
     }
 
     mlir::Value mlirGen(const LiteralExprAST &literal) {
@@ -275,7 +275,7 @@ private:
 
         auto dataAttribute = mlir::DenseElementsAttr::get(mlirType, llvm::ArrayRef(data));
 
-        return m_builder.create<mlir::toy::ConstantOp>(locConvert(literal.loc()), type, dataAttribute);
+        return m_builder.create<lucid_frontend::ConstantOp>(locConvert(literal.loc()), type, dataAttribute);
     }
 
     void collectData(const ExprAST &expr, std::vector<double> &data) {
@@ -296,7 +296,7 @@ private:
         return mlir::success();
     }
     
-    mlir::toy::FuncOp mlirGen(const PrototypeAST & prototypeAST) {
+    lucid_frontend::FuncOp mlirGen(const PrototypeAST & prototypeAST) {
         auto loc = locConvert(prototypeAST.loc());
         // This is a generic function, the return type will be inferred later.
         // Arguments type are uniformly unranked tensors.
@@ -304,7 +304,7 @@ private:
                                                   getType({}));
         auto funcType = m_builder.getFunctionType(argTypes, std::nullopt);
 
-        return m_builder.create<mlir::toy::FuncOp>(loc, prototypeAST.getName(), funcType);
+        return m_builder.create<lucid_frontend::FuncOp>(loc, prototypeAST.getName(), funcType);
     }
 
     mlir::Type getType(llvm::ArrayRef<int64_t> shape) {

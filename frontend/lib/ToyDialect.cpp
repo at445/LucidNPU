@@ -26,8 +26,9 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <utility>
 using namespace mlir;
-using namespace toy;
+using namespace lucid_frontend;
 #include "Dialect.cpp.inc"
 #include "ToyInlineInterface.hpp"
 void ToyDialect::initialize() {
@@ -155,22 +156,21 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
 //===----------------------------------------------------------------------===//
 ::llvm::LogicalResult ReturnOp::verify() {
     if (ReturnSize() > 1) {
-        return emitOpError(
-        llvm::formatv("The result type of return statement {0} \n \
-            can have at most one return value or none.",  getLoc()));
+        return emitOpError("The result type of return statement \
+            can have at most one return value or none.");
     }
 
     auto funcType = getParentOp().getFunctionType();
     if (funcType.getResults().size() != ReturnSize())
     {
         return emitOpError(
-            llvm::formatv("return arity {0} on {1} does not match function result arity {2}.",  
-                getParentOp().getSymName(), getParentOp()->getLoc(), getLoc()));
+            llvm::formatv("return arity {0} on '{1}' does not match function result arity {2}.",
+            ReturnSize(), getParentOp().getSymName(), funcType.getResults().size()));
     }
     
     if ((ReturnSize() == 1) && (getOperandTypes().front() != funcType.getResults().front())) {
         return emitOpError("The result type of return statement ") << getLoc() 
-            << "\n is not martched with the type of function " << getParentOp().getSymName() 
+            << "\n is not matched with the type of function " << getParentOp().getSymName() 
             << " on " << getParentOp()->getLoc()
             << "\n Type of return statement" << getOperandTypes().front()
             << "\n Type of function return" << funcType.getResults().front();
@@ -185,23 +185,22 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
 //===----------------------------------------------------------------------===//
 void MatrixMulOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
                       mlir::Value lhs, mlir::Value rhs) {
+
     auto lhsType = llvm::dyn_cast<mlir::RankedTensorType>(lhs.getType());
     auto rhsType = llvm::dyn_cast<mlir::RankedTensorType>(rhs.getType());
 
     if (!lhsType || !rhsType) {
         state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
-        
-    }
-    auto resultType = inferMatmulResultType(lhsType, rhsType, rhsType.getElementType());
-    if (!resultType) {
-        state.addTypes(RankedTensorType::get({}, builder.getF64Type()));
     } else {
-        state.addTypes(*resultType);
+        auto inferred = inferMatmulResultType(lhsType, rhsType, lhsType.getElementType());
+        if (!inferred) {
+            state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
+        }
+        state.addTypes(*inferred);
     }
+        
     state.addOperands({lhs, rhs});
 }
-
-
 
 ::llvm::LogicalResult MatrixMulOp::verify() {
     auto resultType = dyn_cast<RankedTensorType>(getResult().getType());
@@ -222,11 +221,23 @@ void MatrixMulOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
     return mlir::success();
 }
 
+void MatrixMulOp::inferShapes() {
+    auto lhsType = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[0].getType());
+    auto rhsType = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[1].getType());
+
+    if (!lhsType || !rhsType) return;
+
+    auto inferred = inferMatmulResultType(lhsType, rhsType, lhsType.getElementType());
+    if (!inferred) return;
+
+    getResult().setType(*inferred);
+}
+
 ::llvm::LogicalResult ReshapeOp::verify() {
     auto argTyp = mlir::dyn_cast<RankedTensorType>(getInput().getType());
     auto retType = mlir::dyn_cast<RankedTensorType>(getResult().getType());
     
-    if (argTyp && retType) { // Netheir of them is unranked type 
+    if (argTyp && retType) { // Neither of them is unranked type 
         if (argTyp.hasStaticShape() && retType.hasStaticShape()) { // Both are fully static types. 
             auto argShape = argTyp.getShape();
             auto retShape = retType.getShape();
@@ -280,6 +291,23 @@ void FuncOp::print(mlir::OpAsmPrinter &p) {
     getArgAttrsAttrName(), getResAttrsAttrName());
 }
 
+void TransposeOp::inferShapes() {
+    auto inputType = llvm::dyn_cast<RankedTensorType>(getOperand().getType());
+    if (!inputType || (inputType.getRank() < 2)) return;
+
+    llvm::SmallVector<int64_t, 4> transposed(inputType.getShape());
+    std::swap(transposed[transposed.size()-1], transposed[transposed.size()-2]);
+
+    
+    getResult().setType(mlir::RankedTensorType::get(transposed, inputType.getElementType()));
+}
+
+void CastOp::inferShapes() {
+    auto inputType = llvm::dyn_cast<RankedTensorType>(getOperand().getType());
+    if (!inputType) return;
+    getResult().setType(inputType);
+}
+
 /// Return the callee of the generic call operation, this is required by the
 /// call interface.
 CallInterfaceCallable GenericCallOp::getCallableForCallee() {
@@ -303,10 +331,9 @@ Operation::operand_range GenericCallOp::getArgOperands() {
 MutableOperandRange GenericCallOp::getArgOperandsMutable() {
   return getInputsMutable();
 }
-
 namespace {
     /// Include the patterns defined in the Declarative Rewrite framework.
-    #include "ToyCombine.inc"
+    #include "CustomizedCanonicalize.inc"
 } // namespace
 
 void TransposeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mlir::MLIRContext* context) {
@@ -323,8 +350,8 @@ bool CastOp::areCastCompatible(::mlir::TypeRange inputs, ::mlir::TypeRange outpu
     if (inputs.size() != outputs.size()) return false;
     return llvm::all_of(llvm::zip(inputs, outputs), [](auto pair){
         auto [input, output] = pair;
-        TensorType intyp = llvm::cast<TensorType>(input);
-        TensorType outtyp = llvm::cast<TensorType>(output);
+        TensorType intyp = llvm::dyn_cast<TensorType>(input);
+        TensorType outtyp = llvm::dyn_cast<TensorType>(output);
         if (!intyp || !outtyp || intyp.getElementType() != outtyp.getElementType())
             return false;
         if (!intyp.hasRank() || !outtyp.hasRank()) 
@@ -333,5 +360,7 @@ bool CastOp::areCastCompatible(::mlir::TypeRange inputs, ::mlir::TypeRange outpu
     });
 }
 
+// Implementations of all Ops on toy dialect
 #define GET_OP_CLASSES
 #include "Ops.cpp.inc"
+

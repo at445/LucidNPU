@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
         {
             mlir::MLIRContext context;
             // Load our Dialect in this MLIR Context.
-            context.getOrLoadDialect<mlir::toy::ToyDialect>();
+            context.getOrLoadDialect<lucid_frontend::ToyDialect>();
             mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
             if (!module) {
                 llvm::errs() << "MLIR generation failed\n";
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
 
                 // Now that there is only one function, we can infer the shapes of each of
                 // the operations.
-                mlir::OpPassManager &optPM = pm.nest<mlir::toy::FuncOp>();
+                mlir::OpPassManager &optPM = pm.nest<lucid_frontend::FuncOp>();
                 // Add a run of the canonicalizer to optimize the mlir module.
                 optPM.addPass(mlir::createCanonicalizerPass());
 

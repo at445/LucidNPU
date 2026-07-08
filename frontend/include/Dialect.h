@@ -4,7 +4,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-
+#include "TypeInference.h"
 #include "Dialect.h.inc"
 
 #endif // TOY_DIALECT_H

@@ -9,6 +9,7 @@
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "TypeInference.h"
 #define GET_OP_CLASSES
 #include "Ops.h.inc"
 

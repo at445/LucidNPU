@@ -14,7 +14,7 @@ def main() {
 
   var h <3,2> = [1,2,3,4,5,6];
   var g <2,3> = h;
-  var i <2,3> = g;
+  var i <2,3> = g + g;
   var j = foo(transpose(g), transpose(i));
-  return transpose(transpose(i));
+  return transpose(transpose(j));
 }

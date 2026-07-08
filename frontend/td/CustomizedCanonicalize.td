@@ -2,7 +2,7 @@
 #define TOY_COMBINE
 
 include "mlir/IR/PatternBase.td"
-include "include/Ops.td"
+include "DialectAndOps.td"
 
 // transpose(transpose(x)) = x
 def TransposeTransposeOptPattern : Pat<(TransposeOp(TransposeOp $arg)),
@@ -24,7 +24,4 @@ def FoldReshapeConstantOptPattern : Pat<
     (ReshapeOp:$res (ConstantOp $arg)),
     (ConstantOp (ReshapeConstant $arg, $res))
 >;
-
-
-
 #endif // TOY_COMBINE
