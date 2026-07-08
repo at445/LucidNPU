@@ -167,14 +167,6 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
             llvm::formatv("return arity {0} on '{1}' does not match function result arity {2}.",
             ReturnSize(), getParentOp().getSymName(), funcType.getResults().size()));
     }
-    
-    if ((ReturnSize() == 1) && (getOperandTypes().front() != funcType.getResults().front())) {
-        return emitOpError("The result type of return statement ") << getLoc() 
-            << "\n is not matched with the type of function " << getParentOp().getSymName() 
-            << " on " << getParentOp()->getLoc()
-            << "\n Type of return statement" << getOperandTypes().front()
-            << "\n Type of function return" << funcType.getResults().front();
-    }
 
     return mlir::success();
 }
@@ -231,6 +223,30 @@ void MatrixMulOp::inferShapes() {
     if (!inferred) return;
 
     getResult().setType(*inferred);
+}
+
+void AddOp::inferShapes() {
+    auto type = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[0].getType());
+    if (!type) return;
+    getResult().setType(type);
+}
+
+void SubOp::inferShapes() {
+    auto type = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[0].getType());
+    if (!type) return;
+    getResult().setType(type);
+}
+
+void MulOp::inferShapes() {
+    auto type = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[0].getType());
+    if (!type) return;
+    getResult().setType(type);
+}
+
+void DivOp::inferShapes() {
+    auto type = llvm::dyn_cast<mlir::RankedTensorType>(getOperands()[0].getType());
+    if (!type) return;
+    getResult().setType(type);
 }
 
 ::llvm::LogicalResult ReshapeOp::verify() {

@@ -19,7 +19,7 @@ include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/CastInterfaces.td"
-include "ShapeInfrencceOpInterface.td"
+include "ShapeInfrenceOpInterface.td"
 
 // Provide a definition of the 'toy' dialect in the ODS framework so that we
 // can define our operations.
@@ -64,7 +64,7 @@ def ConstantOp : Toy_Op<"constant", [Pure]> {
     let hasVerifier = 1;
 }
 
-def AddOp : Toy_Op<"add", [Pure, SameOperandsAndResultType]> {
+def AddOp : Toy_Op<"add", [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>, SameOperandsAndResultType]> {
     let summary = "element-wise addition operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -74,7 +74,7 @@ def AddOp : Toy_Op<"add", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def SubOp : Toy_Op<"sub", [Pure, SameOperandsAndResultType]> {
+def SubOp : Toy_Op<"sub", [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>, SameOperandsAndResultType]> {
     let summary = "element-wise subtraction operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -84,7 +84,7 @@ def SubOp : Toy_Op<"sub", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def MulOp : Toy_Op<"mul", [Pure, SameOperandsAndResultType]> {
+def MulOp : Toy_Op<"mul", [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>, SameOperandsAndResultType]> {
     let summary = "element-wise multiplication operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -94,7 +94,7 @@ def MulOp : Toy_Op<"mul", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def DivOp : Toy_Op<"div", [Pure, SameOperandsAndResultType]> {
+def DivOp : Toy_Op<"div", [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>, SameOperandsAndResultType]> {
     let summary = "element-wise division operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -104,7 +104,7 @@ def DivOp : Toy_Op<"div", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($result)";
 }
 
-def MatrixMulOp : Toy_Op<"matrix_mul", [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+def MatrixMulOp : Toy_Op<"matrix_mul", [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>]> {
     let summary = "matrix multiplication operation";
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
@@ -243,7 +243,7 @@ def PrintOp : Toy_Op<"print"> {
 }
 
 def TransposeOp : Toy_Op<"transpose",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>]> {
   let summary = "transpose operation";
 
   let arguments = (ins F64Tensor:$input);
@@ -268,7 +268,7 @@ def TransposeOp : Toy_Op<"transpose",
 
 def CastOp : Toy_Op< "cast", 
                     [DeclareOpInterfaceMethods<CastOpInterface>,
-                     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+                     DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>,
                      Pure, SameOperandsAndResultShape]> {
   let summary = "shape cast operation";
 

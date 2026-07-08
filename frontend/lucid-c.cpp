@@ -5,6 +5,7 @@
 #include "Dialect.h"
 #include "ASTDumper.h"
 #include "MLIRGen.h"
+#include "Passes.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
@@ -13,7 +14,6 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
-using namespace lucid_frontend;
 namespace cl = llvm::cl;
 namespace {
     enum Action {None, DumpAST, DumpMLIR};
@@ -42,8 +42,8 @@ static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
     return nullptr;
   }
   auto buffer = fileOrErr.get()->getBuffer();
-  LexerBuffer lexer(buffer.begin(), buffer.end(), filename);
-  Parser parser(allocator, lexer);
+  lucid_frontend::LexerBuffer lexer(buffer.begin(), buffer.end(), filename);
+  lucid_frontend::Parser parser(allocator, lexer);
   return parser.parseModule();
 }
 
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
 
     switch (emitAction) {
     case Action::DumpAST:
-        ASTDumper::getInstance().Dump(moduleAST);
+        lucid_frontend::ASTDumper::getInstance().Dump(moduleAST);
         return 0;
 
     case Action::DumpMLIR:
@@ -82,7 +82,9 @@ int main(int argc, char **argv) {
                 // the operations.
                 mlir::OpPassManager &optPM = pm.nest<lucid_frontend::FuncOp>();
                 // Add a run of the canonicalizer to optimize the mlir module.
+                optPM.addPass(lucid_frontend::createShapeInferencePass());
                 optPM.addPass(mlir::createCanonicalizerPass());
+                optPM.addPass(mlir::createCSEPass());
 
                 if (mlir::failed(pm.run(*module))) return 4;
             }

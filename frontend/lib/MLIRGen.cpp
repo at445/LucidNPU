@@ -204,7 +204,10 @@ private:
         auto value = mlirGen(*transExpr.getArg());
         if (!value) return nullptr;
         
-        return m_builder.create<lucid_frontend::TransposeOp>(locConvert(transExpr.loc()), value);
+        return m_builder.create<lucid_frontend::TransposeOp>(
+            locConvert(transExpr.loc()), 
+            getType({}),
+            value);
     } 
 
     mlir::Value mlirGen(const CallExprAST &callExpr) {

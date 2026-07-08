@@ -18,6 +18,7 @@ add_llvm_executable(${TARGET_NAME}
     lib/ASTDumper.cpp
     lib/MLIRGen.cpp
     lib/ToyDialect.cpp
+    lib/ShapeInferencePass.cpp
     lucid-c.cpp
 )
 

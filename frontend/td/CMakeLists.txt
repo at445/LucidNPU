@@ -7,9 +7,9 @@ mlir_tablegen(Dialect.cpp.inc -gen-dialect-defs)
 set(LLVM_TARGET_DEFINITIONS CustomizedCanonicalize.td)
 mlir_tablegen(CustomizedCanonicalize.inc -gen-rewriters)
 
-set(LLVM_TARGET_DEFINITIONS ShapeInfrencceOpInterface.td)
-mlir_tablegen(ShapeInfrencceOpInterface.h.inc -gen-op-interface-decls)
-mlir_tablegen(ShapeInfrencceOpInterface.cpp.inc -gen-op-interface-defs)
+set(LLVM_TARGET_DEFINITIONS ShapeInfrenceOpInterface.td)
+mlir_tablegen(ShapeInfrenceOpInterface.h.inc -gen-op-interface-decls)
+mlir_tablegen(ShapeInfrenceOpInterface.cpp.inc -gen-op-interface-defs)
 
 add_public_tablegen_target(ToyDialectIncGen)
 
