@@ -60,6 +60,7 @@ if(FILECHECK_EXECUTABLE)
     file(GLOB_RECURSE suite_tests CONFIGURE_DEPENDS "${suite_root}/*.toy")
     if(test_dir STREQUAL "mlir")
       list(FILTER suite_tests EXCLUDE REGEX "/opt/")
+      list(FILTER suite_tests EXCLUDE REGEX "/lower/")
     endif()
     list(SORT suite_tests)
 
@@ -104,6 +105,7 @@ if(FILECHECK_EXECUTABLE)
   add_lucid_c_suite(ASTDumpSuite -emit=ast ast)
   add_lucid_c_suite(MLIRDumpSuite -emit=mlir mlir)
   add_lucid_c_suite(MLIROptSuite "-emit=mlir -opt" mlir/opt)
+  add_lucid_c_suite(MLIRLowerSuite "-emit=mlir -opt -lower_to_affine" mlir/lower)
   add_lucid_c_suite(ErrorSuite -emit=mlir error)
 
   add_custom_target(check-frontend

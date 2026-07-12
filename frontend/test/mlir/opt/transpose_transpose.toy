@@ -8,7 +8,7 @@ def main() {
 }
 
 # CHECK: module {
-# CHECK: toy.func @main() -> tensor<2x3xf64> {
+# CHECK: toy.func @main() -> tensor<*xf64> {
 # CHECK: toy.constant{{.*}}: tensor<2x3xf64>
 # CHECK: toy.return %{{[0-9]+}} : tensor<2x3xf64>
 # CHECK-NOT: toy.transpose
