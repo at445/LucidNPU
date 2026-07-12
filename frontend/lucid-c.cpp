@@ -13,6 +13,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 
 namespace cl = llvm::cl;
 namespace {
@@ -31,6 +32,9 @@ static cl::opt<enum Action> emitAction( "emit",
                                     );
 
 static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
+static cl::opt<bool> lower2Affine("lower_to_affine", cl::desc("Lower to affine"), cl::callback([](const bool &v) {
+    if (v) enableOpt = true;
+}));
 
 /// Returns a lucid_frontend AST resulting from parsing the file or a nullptr on error.
 static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
@@ -64,6 +68,11 @@ int main(int argc, char **argv) {
     case Action::DumpMLIR:
         {
             mlir::MLIRContext context;
+            // Register the func dialect inliner extension
+            mlir::DialectRegistry registry;
+            mlir::func::registerInlinerExtension(registry);
+            context.appendDialectRegistry(registry);
+            
             // Load our Dialect in this MLIR Context.
             context.getOrLoadDialect<lucid_frontend::ToyDialect>();
             mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
@@ -71,7 +80,7 @@ int main(int argc, char **argv) {
                 llvm::errs() << "MLIR generation failed\n";
                 return 1;
             }
-            if (enableOpt) {
+            if (enableOpt || lower2Affine) {
                 mlir::PassManager pm(module.get()->getName());
                 // Apply any generic pass manager command line options and run the pipeline.
                 if (mlir::failed(mlir::applyPassManagerCLOptions(pm))) return 4;
@@ -85,6 +94,10 @@ int main(int argc, char **argv) {
                 optPM.addPass(lucid_frontend::createShapeInferencePass());
                 optPM.addPass(mlir::createCanonicalizerPass());
                 optPM.addPass(mlir::createCSEPass());
+                
+                if (lower2Affine) {
+                    pm.addPass(lucid_frontend::createAffineLoweringPass());
+                }
 
                 if (mlir::failed(pm.run(*module))) return 4;
             }

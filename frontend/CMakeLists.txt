@@ -4,14 +4,20 @@ set(TARGET_NAME lucid-c)
 
 set(${TARGET_NAME}_LIBS
     MLIRAnalysis
+    MLIRCallInterfaces
+    MLIRCastInterfaces
     MLIRFunctionInterfaces
-    MLIRInferTypeOpInterface
     MLIRIR
     MLIRParser
+    MLIRPass
     MLIRSideEffectInterfaces
     MLIRSupport
     MLIRTransforms
-    MLIRCastInterfaces
+    MLIRAffineDialect
+    MLIRArithDialect
+    MLIRFuncDialect
+    MLIRMemRefDialect
+    MLIRFuncInlinerExtension
 )
 
 add_llvm_executable(${TARGET_NAME}
@@ -19,6 +25,7 @@ add_llvm_executable(${TARGET_NAME}
     lib/MLIRGen.cpp
     lib/ToyDialect.cpp
     lib/ShapeInferencePass.cpp
+    lib/AffineLoweringPass.cpp
     lucid-c.cpp
 )
 

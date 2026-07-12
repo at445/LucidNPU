@@ -14,7 +14,6 @@
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build lucid-c (Debug)",
             "initCommands": [
-                "command source ${workspaceFolder}/.vscode/lldb/init.lldb",
                 "command script import ${env:HOME}/llvm-project/mlir/utils/lldb-scripts/mlirDataFormatters.py"
             ]
         }
