@@ -1,6 +1,17 @@
+def do_matmul(a, b) {
+  return transpose(transpose(a)) @ transpose(transpose(b));
+}
+
 def main() {
-  var h  = [1,2,3,4,5,6];
-  var i  = transpose(h);
-  print(h @ i);
-  return;
+  var vec = [1, 2, 3];
+  var mat1 = [[1, 2], [3, 4], [5, 6]];
+  var mat2 = [[1, 2, 3], [4, 5, 6]];
+
+  var r1 = do_matmul(vec, mat1);
+  var r2 = do_matmul(mat2, vec);
+  var r3 = do_matmul(vec, vec);
+  
+  print(r1);
+  print(r2);
+  print(r3);
 }

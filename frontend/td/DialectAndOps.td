@@ -119,6 +119,8 @@ def MatrixMulOp : Toy_Op<"matrix_mul", [Pure, DeclareOpInterfaceMethods<ShapeInf
 
     // Indicate that additional verification for this operation is necessary.
     let hasVerifier = 1;
+
+    let hasCanonicalizer = 1;
 }
 
 def ReshapeOp : Toy_Op<"reshape", [Pure]> {
@@ -266,7 +268,13 @@ def TransposeOp : Toy_Op<"transpose",
   // Invoke a static verify method to verify this transpose operation.
   //let hasVerifier = 1;
 }
-
+// castOp is different from reshapeOp, which lies in the following: 
+//   1. reshapeOp allows users to explicitly specify the result type (var <m, n> = ...), 
+//   and the result type is not derived; only whether the lengths match is considered, 
+//   which is equivalent to different views in memory. 
+//   2. For castOp, it is generated when the return type of the inline operation does not 
+//   match the type of the next node. At this time, the result type needs to be derived 
+//   based on the input. Otherwise, the inline pass will fail actively.
 def CastOp : Toy_Op< "cast", 
                     [DeclareOpInterfaceMethods<CastOpInterface>,
                      DeclareOpInterfaceMethods<ShapeInfrenceOpInterface>,

@@ -26,6 +26,7 @@ add_llvm_executable(${TARGET_NAME}
     lib/ToyDialect.cpp
     lib/ShapeInferencePass.cpp
     lib/AffineLoweringPass.cpp
+    lib/CustomizedCanonicalize.cpp
     lucid-c.cpp
 )
 

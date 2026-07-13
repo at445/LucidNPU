@@ -20,7 +20,7 @@ def main() {
 
 # CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
 
-# CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<2xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<*xf64>
 
 # CHECK: toy.return
 # CHECK-NOT: toy.return %

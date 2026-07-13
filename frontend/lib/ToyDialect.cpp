@@ -18,7 +18,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/LogicalResult.h"
-#include "mlir/IR/PatternMatch.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -178,20 +177,8 @@ void ConstantOp::print(mlir::OpAsmPrinter &printer) {
 void MatrixMulOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
                       mlir::Value lhs, mlir::Value rhs) {
 
-    auto lhsType = llvm::dyn_cast<mlir::RankedTensorType>(lhs.getType());
-    auto rhsType = llvm::dyn_cast<mlir::RankedTensorType>(rhs.getType());
-
-    if (!lhsType || !rhsType) {
-        state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
-    } else {
-        auto inferred = inferMatmulResultType(lhsType, rhsType, lhsType.getElementType());
-        if (!inferred) {
-            state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
-        }
-        state.addTypes(*inferred);
-    }
-        
     state.addOperands({lhs, rhs});
+    state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
 }
 
 ::llvm::LogicalResult MatrixMulOp::verify() {
@@ -221,7 +208,6 @@ void MatrixMulOp::inferShapes() {
 
     auto inferred = inferMatmulResultType(lhsType, rhsType, lhsType.getElementType());
     if (!inferred) return;
-
     getResult().setType(*inferred);
 }
 
@@ -309,11 +295,12 @@ void FuncOp::print(mlir::OpAsmPrinter &p) {
 
 void TransposeOp::inferShapes() {
     auto inputType = llvm::dyn_cast<RankedTensorType>(getOperand().getType());
-    if (!inputType || (inputType.getRank() < 2)) return;
+    if (!inputType || inputType.getRank() == 0) return;
 
     llvm::SmallVector<int64_t, 4> transposed(inputType.getShape());
-    std::swap(transposed[transposed.size()-1], transposed[transposed.size()-2]);
-
+    if (transposed.size() > 1) {
+        std::swap(transposed[transposed.size()-1], transposed[transposed.size()-2]);
+    }
     
     getResult().setType(mlir::RankedTensorType::get(transposed, inputType.getElementType()));
 }
@@ -346,34 +333,6 @@ Operation::operand_range GenericCallOp::getArgOperands() {
 /// required by the call interface.
 MutableOperandRange GenericCallOp::getArgOperandsMutable() {
   return getInputsMutable();
-}
-namespace {
-    /// Include the patterns defined in the Declarative Rewrite framework.
-    #include "CustomizedCanonicalize.inc"
-} // namespace
-
-void TransposeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mlir::MLIRContext* context) {
-    results.add<TransposeTransposeOptPattern>(context);
-}
-
-void ReshapeOp::getCanonicalizationPatterns(mlir::RewritePatternSet&results, mlir::MLIRContext* context) {
-    results.add<ReshapeReshapeOptPattern>(context);
-    results.add<RedundantReshapeOptPattern>(context);
-    results.add<FoldReshapeConstantOptPattern>(context);
-}
-
-bool CastOp::areCastCompatible(::mlir::TypeRange inputs, ::mlir::TypeRange outputs) {
-    if (inputs.size() != outputs.size()) return false;
-    return llvm::all_of(llvm::zip(inputs, outputs), [](auto pair){
-        auto [input, output] = pair;
-        TensorType intyp = llvm::dyn_cast<TensorType>(input);
-        TensorType outtyp = llvm::dyn_cast<TensorType>(output);
-        if (!intyp || !outtyp || intyp.getElementType() != outtyp.getElementType())
-            return false;
-        if (!intyp.hasRank() || !outtyp.hasRank()) 
-            return true;
-        return intyp == outtyp;
-    });
 }
 
 // Implementations of all Ops on toy dialect

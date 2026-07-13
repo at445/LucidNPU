@@ -19,15 +19,15 @@ def main() {
 }
 
 # CHECK: module {
-# CHECK: toy.func @main() -> tensor<2x2xf64> {
+# CHECK: toy.func @main() -> tensor<*xf64> {
 # CHECK-DAG: toy.constant{{.*}}: tensor<2x2xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<2xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<3xf64>
 # CHECK-DAG: toy.constant{{.*}}: tensor<2x3xf64>
-# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2x2xf64> -> tensor<2x2xf64>
-# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2xf64> -> tensor<2xf64>
-# CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<2xf64>
-# CHECK: toy.matrix_mul {{.*}}: tensor<2xf64>, tensor<2x2xf64> -> tensor<2xf64>
-# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2x3xf64> -> tensor<2x3xf64>
-# CHECK: toy.return %{{[0-9]+}} : tensor<2x2xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2x2xf64> -> tensor<*xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2xf64> -> tensor<*xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x3xf64>, tensor<3xf64> -> tensor<*xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2xf64>, tensor<2x2xf64> -> tensor<*xf64>
+# CHECK: toy.matrix_mul {{.*}}: tensor<2x2xf64>, tensor<2x3xf64> -> tensor<*xf64>
+# CHECK: toy.return %{{[0-9]+}} : tensor<*xf64>
 # CHECK-NOT: error:

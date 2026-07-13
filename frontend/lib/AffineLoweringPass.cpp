@@ -175,7 +175,7 @@ class MatrixMulOp : public OpConversionPattern<lucid_frontend::MatrixMulOp> {
                   ConversionPatternRewriter &rewriter) const final 
     {
         auto loc = op->getLoc();
-        auto tensorType = llvm::cast<RankedTensorType>(*op->result_type_begin());
+        auto tensorType = llvm::cast<RankedTensorType>(op->getResultTypes().front());
 
         auto memRefType = ConvertTensor2MemRef(tensorType);
         auto alloc = insertAllocAndDealloc(memRefType, loc, rewriter);

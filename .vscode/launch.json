@@ -9,7 +9,8 @@
             "args": [
                 "${workspaceFolder}/frontend/test/test.toy",
                 "-emit=mlir",
-                "-opt"
+                "-opt",
+                "-lower_to_affine"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build lucid-c (Debug)",
