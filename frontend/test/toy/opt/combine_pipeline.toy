@@ -1,4 +1,4 @@
-# RUN: lucid-c %s -emit=mlir -opt 2>&1 | FileCheck %s
+# RUN: lucid-c %s -emit=toy -opt 2>&1 | FileCheck %s
 #
 # Integration: reshape chain + redundant reshape + double transpose.
 

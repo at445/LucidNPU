@@ -1,0 +1,22 @@
+# RUN: lucid-c %s -emit=toy 2>&1 | FileCheck %s
+#
+# ReshapeOp: only mat is returned, unused reshapes are DCE'd.
+# Shape inference resolves type to concrete shape.
+
+def main() {
+  var mat<2, 3> = [1, 2, 3, 4, 5, 6];
+  var transposed<3, 2> = [[1, 2, 3], [4, 5, 6]];
+  var grid = [[1, 2], [3, 4], [5, 6]];
+  var flat<6> = grid;
+  var one<1> = 1;
+  return mat;
+}
+
+# CHECK: module {
+# CHECK: toy.func @main() -> tensor<2x3xf64> {
+# CHECK: toy.constant{{.*}}tensor<2x3xf64>
+# CHECK: toy.return {{.*}}: tensor<2x3xf64>
+# CHECK: }
+# CHECK: }
+# CHECK-NOT: toy.reshape
+# CHECK-NOT: error:

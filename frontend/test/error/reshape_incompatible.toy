@@ -1,4 +1,4 @@
-# RUN: not lucid-c %s -emit=mlir 2>&1 | FileCheck %s
+# RUN: not lucid-c %s -emit=toy 2>&1 | FileCheck %s
 #
 # ReshapeOp verifier: static target shape must have the same element count.
 
