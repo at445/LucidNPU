@@ -82,6 +82,7 @@ int main(int argc, char **argv) {
     cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to Toy dialect format");
     if (emitAction == Action::None) {
         llvm::errs() << "No action specified (parsing only?), use -emit=<action>\n";
+        return 1;
     }
 
     mlir::MLIRContext context;
