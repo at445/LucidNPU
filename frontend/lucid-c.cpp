@@ -25,8 +25,12 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
@@ -57,7 +61,9 @@ static cl::opt<enum Action> emitAction( "emit",
                                         cl::values(clEnumValN(DumpAST, "ast", "dump AST")),
                                         cl::values(clEnumValN(DumpToyMLIR, "toy", "dump toy MLIR")),
                                         cl::values(clEnumValN(DumpMLIRAffine, "affine", "dump affine Dialect")),
-                                        cl::values(clEnumValN(DumpMLIRLLVM, "llvm", "dump llvm Dialect"))
+                                        cl::values(clEnumValN(DumpMLIRLLVM, "LLVM", "dump LLVM Dialect")),
+                                        cl::values(clEnumValN(DumpLLVM, "llvm-ir", "dump llvm IR")),
+                                        cl::values(clEnumValN(RunJIT, "run", "jit run"))
                                     );
 
 static cl::opt<bool> enableOpt("opt",
@@ -79,9 +85,8 @@ static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
   return parser.parseModule();
 }
 
-static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(lucid_frontend::ModuleAST * moduleAST) 
+static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &context, lucid_frontend::ModuleAST * moduleAST) 
 {
-    mlir::MLIRContext context;
     // Register the func dialect inliner extension
     mlir::DialectRegistry registry;
     mlir::func::registerInlinerExtension(registry);
@@ -132,6 +137,89 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(lucid_frontend::Module
     return module;
 }
 
+std::unique_ptr<llvm::Module> lowerTollvm(llvm::LLVMContext& llvmContext, mlir::ModuleOp module) {
+    // register the buildin dialect interface on mlir
+    // this will tell the lowering process how to lower some basic mlir op to llvm ir.
+    // like: mlir::ModuleOp -> llvm::Module
+    mlir::registerBuiltinDialectTranslation(*module->getContext());
+
+    // register the LLVM dialect interface 
+    // this will tell the lowering process how to lower some LLVM mlir op to llvm ir.
+    // like: llvm.addop -> llvm::Instruction 
+    mlir::registerLLVMDialectTranslation(*module->getContext());
+
+    
+    auto llvmModule = mlir::translateModuleToLLVMIR(module, llvmContext);
+    if (!llvmModule) {
+        llvm::errs() << "Failed to emit LLVM IR\n";
+        return nullptr;
+    }
+    
+    // Initialize LLVM targets.
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    // Configure the LLVM Module
+    auto tmBuilderOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
+    if (!tmBuilderOrError) {
+        llvm::errs() << "Could not create JITTargetMachineBuilder\n";
+        return nullptr;
+    }
+
+    auto tmOrError = tmBuilderOrError->createTargetMachine();
+    if (!tmOrError) {
+        llvm::errs() << "Could not create TargetMachine\n";
+        return nullptr;
+    }
+    mlir::ExecutionEngine::setupTargetTripleAndDataLayout(llvmModule.get(),
+                                                            tmOrError.get().get());
+    /// Optionally run an optimization pipeline over the llvm module.
+    auto optPipeline = mlir::makeOptimizingTransformer(
+        /*optLevel=*/enableOpt ? 3 : 0, /*sizeLevel=*/0,
+        /*targetMachine=*/nullptr);
+    if (auto err = optPipeline(llvmModule.get())) {
+        llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
+        return nullptr;
+    }
+    return llvmModule;
+}
+
+int runJit(std::unique_ptr<llvm::LLVMContext> ctx, std::unique_ptr<llvm::Module> llvmModule) {
+    // 1. Initialize the target and the assembly printer
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    // 2. create the instance of LLJIT
+    auto jitOrErr = llvm::orc::LLJITBuilder().create();
+    if (!jitOrErr) {
+        llvm::errs() << "Failed to create JIT: "
+                     << llvm::toString(jitOrErr.takeError()) << "\n";
+        return -1;
+    }
+    auto jit = std::move(*jitOrErr);
+
+    // 3. Wrap llvm::Module and its Context into a thread-safe module and incorporate JIT functionality.
+    llvm::orc::ThreadSafeModule tsm(std::move(llvmModule), std::move(ctx));
+    if (auto err = jit->addIRModule(std::move(tsm))) {
+        llvm::errs() << "Failed to add IR module to JIT: "
+                     << llvm::toString(std::move(err)) << "\n";
+        return -1;
+    }
+
+    // 4. Search for the entry function "main"
+    auto symOrErr = jit->lookup("main");
+    if (!symOrErr) {
+        llvm::errs() << "Failed to lookup 'main' function: "
+                     << llvm::toString(symOrErr.takeError()) << "\n";
+        return -1;
+    }
+
+    // 5. Modify the function signature and execute
+    // The main function signature in the toy language is void()
+    auto *mainFunc = symOrErr->toPtr<void()>();
+    mainFunc();
+    return 0;
+}
 int main(int argc, char **argv) {
     mlir::registerPassManagerCLOptions();
     cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to Toy dialect format");
@@ -149,8 +237,9 @@ int main(int argc, char **argv) {
         lucid_frontend::ASTDumper::getInstance().Dump(moduleAST);
         return 0;
     }
-
-    mlir::OwningOpRef<mlir::ModuleOp> module = MLIRLowerProcess(moduleAST);
+    // MLIRContext should keep 
+    mlir::MLIRContext context;
+    mlir::OwningOpRef<mlir::ModuleOp> module = MLIRLowerProcess(context, moduleAST);
     if (!module) {
         llvm::errs() << "mlir generation or lowering failed\n";
         return 1;
@@ -162,6 +251,17 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    
-    return 0;
+    auto llvmContext = std::make_unique<llvm::LLVMContext>();
+    auto llvmModule = lowerTollvm(*llvmContext, *module);
+    if (!llvmModule) {
+        llvm::errs() << "llvm lowering failed\n";
+        return 1;
+    }
+
+    if (emitAction == Action::DumpLLVM) {
+        llvmModule->dump();
+        return 0;
+    }
+
+    return runJit(std::move(llvmContext), std::move(llvmModule));
 }

@@ -161,7 +161,7 @@ private:
                 LLVM::Linkage::Internal, strName, 
                 // notes: The builder.getxxxAttr function is used to 
                 //        convert the object of the view class into an object on the IR tree.
-                builder.getStrArrayAttr(strValue), 
+                builder.getStringAttr(strValue), 
                 0);
         }
 

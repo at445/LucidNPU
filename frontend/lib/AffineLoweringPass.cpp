@@ -343,8 +343,7 @@ struct PrintOpLowering : public OpConversionPattern<lucid_frontend::PrintOp> {
     LogicalResult
     matchAndRewrite(lucid_frontend::PrintOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
-        rewriter.modifyOpInPlace(op, 
-            [&]{op->setOperands(adaptor.getInput());});
+        rewriter.replaceOpWithNewOp<lucid_frontend::PrintOp>(op, adaptor.getInput());
         return mlir::success();
     }
 };
