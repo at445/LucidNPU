@@ -8,9 +8,7 @@
             "program": "${workspaceFolder}/build/bin/lucid-c",
             "args": [
                 "${workspaceFolder}/frontend/test/test.toy",
-                "-emit=mlir",
-                "-opt",
-                "-lower_to_affine"
+                "-emit=llvm",
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build lucid-c (Debug)",

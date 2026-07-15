@@ -33,6 +33,7 @@ add_llvm_executable(${TARGET_NAME}
     lib/ShapeInferencePass.cpp
     lib/AffineLoweringPass.cpp
     lib/CustomizedCanonicalize.cpp
+    lib/LLVMLoweringPass.cpp
     lucid-c.cpp
 )
 
