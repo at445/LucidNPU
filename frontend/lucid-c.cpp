@@ -28,15 +28,20 @@
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
+#include <optional>
 
 namespace cl = llvm::cl;
 namespace {
@@ -47,7 +52,11 @@ namespace {
         DumpMLIRAffine,
         DumpMLIRLLVM,
         DumpLLVM,
-        RunJIT,
+    };
+
+    enum RunMode {
+        Native,
+        JIT,
     };
 }
 
@@ -62,9 +71,14 @@ static cl::opt<enum Action> emitAction( "emit",
                                         cl::values(clEnumValN(DumpToyMLIR, "toy", "dump toy MLIR")),
                                         cl::values(clEnumValN(DumpMLIRAffine, "affine", "dump affine Dialect")),
                                         cl::values(clEnumValN(DumpMLIRLLVM, "LLVM", "dump LLVM Dialect")),
-                                        cl::values(clEnumValN(DumpLLVM, "llvm-ir", "dump llvm IR")),
-                                        cl::values(clEnumValN(RunJIT, "run", "jit run"))
+                                        cl::values(clEnumValN(DumpLLVM, "llvm-ir", "dump llvm IR"))
                                     );
+
+static cl::opt<enum RunMode> runMode("run",
+                                     cl::desc("Select how to run the program"),
+                                     cl::values(clEnumValN(Native, "native", "generate native executable (default)")),
+                                     cl::values(clEnumValN(JIT, "jit", "JIT compile and run")),
+                                     cl::init(Native));
 
 static cl::opt<bool> enableOpt("opt",
                                cl::desc("Enable optimizations (canonicalizer, CSE, shape inference)"),
@@ -85,7 +99,7 @@ static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
   return parser.parseModule();
 }
 
-static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &context, lucid_frontend::ModuleAST * moduleAST) 
+static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &context, lucid_frontend::ModuleAST * moduleAST, bool needLLVM) 
 {
     // Register the func dialect inliner extension
     mlir::DialectRegistry registry;
@@ -103,9 +117,9 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &con
     if (mlir::failed(mlir::applyPassManagerCLOptions(pm))) return nullptr;
     pm.addPass(mlir::createInlinerPass());
 
-    auto needCaonicalizer = (emitAction >= Action::DumpMLIRAffine);
-    auto lowering2Affine = (emitAction >= Action::DumpMLIRAffine);
-    auto lowering2LLVM = (emitAction >= Action::DumpMLIRLLVM);
+    auto needCaonicalizer = (needLLVM || emitAction >= Action::DumpMLIRAffine);
+    auto lowering2Affine = (needLLVM || emitAction >= Action::DumpMLIRAffine);
+    auto lowering2LLVM = (needLLVM || emitAction >= Action::DumpMLIRLLVM);
     mlir::OpPassManager &shapePM = pm.nest<lucid_frontend::FuncOp>();
     shapePM.addPass(lucid_frontend::createShapeInferencePass());
     if (enableOpt || needCaonicalizer) {
@@ -220,33 +234,84 @@ int runJit(std::unique_ptr<llvm::LLVMContext> ctx, std::unique_ptr<llvm::Module>
     mainFunc();
     return 0;
 }
+int compileNative(std::unique_ptr<llvm::Module> llvmModule, llvm::StringRef outputFilename) {
+    // lowerTollvm already called InitializeNativeTarget / InitializeNativeTargetAsmPrinter,
+    // but calling them again is harmless.
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    // Triple and data layout are already set by lowerTollvm
+    auto targetTriple = llvmModule->getTargetTriple();
+
+    std::string error;
+    auto *target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+    if (!target) {
+        llvm::errs() << "Failed to lookup target: " << error << "\n";
+        return -1;
+    }
+
+    auto cpu = "generic";
+    auto features = "";
+    llvm::TargetOptions opt;
+    auto targetMachine = target->createTargetMachine(targetTriple, cpu, features, opt, llvm::Reloc::PIC_);
+    llvmModule->setDataLayout(targetMachine->createDataLayout());
+
+    // Emit object file
+    std::string objFilename = (outputFilename + ".o").str();
+    std::error_code ec;
+    llvm::raw_fd_ostream dest(objFilename, ec, llvm::sys::fs::OF_None);
+    if (ec) {
+        llvm::errs() << "Could not open file: " << ec.message() << "\n";
+        return -1;
+    }
+
+    llvm::legacy::PassManager pass;
+    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, llvm::CodeGenFileType::ObjectFile)) {
+        llvm::errs() << "TargetMachine can't emit an object file\n";
+        return -1;
+    }
+
+    pass.run(*llvmModule);
+    dest.flush();
+
+    // Link object file into executable using g++
+    std::string cmd = "g++ " + objFilename + " -o " + outputFilename.str();
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+        llvm::errs() << "Linking failed\n";
+        return -1;
+    }
+
+    llvm::outs() << "Generated executable: " << outputFilename << "\n";
+    return 0;
+}
+
 int main(int argc, char **argv) {
     mlir::registerPassManagerCLOptions();
     cl::ParseCommandLineOptions(argc, argv, "this is a tool for LucidNPU, it will convert the Toy Language to Toy dialect format");
-    if (emitAction == Action::None) {
-        llvm::errs() << "No action specified (parsing only?), use -emit=<action>\n";
-        return 1;
-    }
 
     auto moduleAST = parseInputFile(inputFileName);
     if (!moduleAST) {
         llvm::errs() << "AST generation failed\n";
         return 1;
     }
+
     if (emitAction == Action::DumpAST) {
         lucid_frontend::ASTDumper::getInstance().Dump(moduleAST);
         return 0;
     }
-    // MLIRContext should keep 
+
+    // Always lower to LLVM when running (runMode defaults to Native)
+    bool needLLVM = true;
     mlir::MLIRContext context;
-    mlir::OwningOpRef<mlir::ModuleOp> module = MLIRLowerProcess(context, moduleAST);
+    mlir::OwningOpRef<mlir::ModuleOp> module = MLIRLowerProcess(context, moduleAST, needLLVM);
     if (!module) {
         llvm::errs() << "mlir generation or lowering failed\n";
         return 1;
     }
 
-    auto dumpMLIRActively = (emitAction <= Action::DumpMLIRLLVM);
-    if (dumpMLIRActively) {
+    // Dump MLIR at the requested level
+    if (emitAction >= Action::DumpToyMLIR && emitAction <= Action::DumpMLIRLLVM) {
         module->dump();
         return 0;
     }
@@ -263,5 +328,10 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    return runJit(std::move(llvmContext), std::move(llvmModule));
+    if (runMode == JIT) {
+        return runJit(std::move(llvmContext), std::move(llvmModule));
+    }
+
+    // Native: generate executable
+    return compileNative(std::move(llvmModule), "a.out");
 }

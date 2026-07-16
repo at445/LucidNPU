@@ -29,6 +29,18 @@
         "LLVM_DIR": "$env{HOME}/llvm-project/build/lib/cmake/llvm",
         "MLIR_DIR": "$env{HOME}/llvm-project/build/lib/cmake/mlir"
       }
+    },
+     {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Release build with -O3",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLVM_DIR": "$env{HOME}/llvm-project/build/lib/cmake/llvm",
+        "MLIR_DIR": "$env{HOME}/llvm-project/build/lib/cmake/mlir"
+      }
     }
   ],
   "buildPresets": [
@@ -41,6 +53,11 @@
       "name": "debug",
       "configurePreset": "debug",
       "displayName": "Build Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "displayName": "Build Release"
     }
   ]
 }

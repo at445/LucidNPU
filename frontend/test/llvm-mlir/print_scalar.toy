@@ -1,0 +1,25 @@
+# RUN: lucid-c %s -emit=LLVM 2>&1 | FileCheck %s
+#
+# Print a scalar literal value (42).
+# Tests printf integration: global format strings, printf declaration, and call.
+# Also verifies malloc/free for memory allocation of the scalar.
+
+def main() {
+  print(42);
+}
+
+# CHECK: module {
+# CHECK-DAG: llvm.mlir.global internal constant @nl
+# CHECK-DAG: llvm.mlir.global internal constant @frmt_spec
+# CHECK-DAG: llvm.func @printf(!llvm.ptr, ...) -> i32
+# CHECK-DAG: llvm.func @malloc(i64) -> !llvm.ptr
+# CHECK-DAG: llvm.func @free(!llvm.ptr)
+# CHECK: llvm.func @main()
+# CHECK: llvm.mlir.constant(4.200000e+01 : f64)
+# CHECK: llvm.call @malloc
+# CHECK: llvm.store
+# CHECK: llvm.call @printf
+# CHECK: llvm.call @free
+# CHECK: llvm.return
+# CHECK: }
+# CHECK-NOT: error:

@@ -1,17 +1,31 @@
-def do_matmul(a, b) {
-  return transpose(transpose(a)) @ transpose(transpose(b));
+# Fully Connected Layer: output = input @ weight + bias
+def fc_layer(input, weight, bias) {
+  return input @ weight + bias;
 }
 
 def main() {
-  var vec = [1, 2, 3];
-  var mat1 = [[1, 2], [3, 4], [5, 6]];
-  var mat2 = [[1, 2, 3], [4, 5, 6]];
+  # Input: batch_size=2, features=3
+  var X = [[1.0, 2.0, 3.0],
+           [4.0, 5.0, 6.0]];
 
-  var r1 = do_matmul(vec, mat1);
-  var r2 = do_matmul(mat2, vec);
-  var r3 = do_matmul(vec, vec);
-  
-  print(r1);
-  print(r2);
-  print(r3);
+  # Layer 1: 3→4
+  var W1 = [[0.1, 0.2, 0.3, 0.4],
+            [0.5, 0.6, 0.7, 0.8],
+            [0.9, 1.0, 1.1, 1.2]];
+  # bias 1: 2→4
+  var b1 = [[0.1, 0.2, 0.3, 0.4],
+            [0.1, 0.2, 0.3, 0.4]];
+
+  # Layer 2: 4→2
+  var W2 = [[0.2, 0.4],
+            [0.6, 0.8],
+            [1.0, 1.2],
+            [1.4, 1.6]];
+  var b2 = [[0.5, 0.5],
+            [0.3, 0.4]];
+
+  var hidden = fc_layer(X, W1, b1);
+  var output = fc_layer(hidden, W2, b2);
+
+  print(output);
 }

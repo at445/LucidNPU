@@ -27,6 +27,9 @@ set(${TARGET_NAME}_LIBS
     MLIRSupport
     MLIRTargetLLVMIRExport
     MLIRTransforms
+    LLVMX86CodeGen
+    LLVMX86Desc
+    LLVMX86Info
 )
 
 add_llvm_executable(${TARGET_NAME}

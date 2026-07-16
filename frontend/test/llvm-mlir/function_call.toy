@@ -1,0 +1,24 @@
+# RUN: lucid-c %s -emit=LLVM 2>&1 | FileCheck %s
+#
+# User-defined function call: add two scalars and print the result.
+# Verifies that function inlining happens and llvm.fadd is emitted.
+
+def add(a, b) {
+  return a + b;
+}
+
+def main() {
+  var x = add(10.0, 20.0);
+  print(x);
+}
+
+# CHECK: module {
+# CHECK-DAG: llvm.func @printf(!llvm.ptr, ...) -> i32
+# CHECK-DAG: llvm.func @malloc(i64) -> !llvm.ptr
+# CHECK-DAG: llvm.func @free(!llvm.ptr)
+# CHECK: llvm.func @main()
+# CHECK: llvm.fadd
+# CHECK: llvm.call @printf
+# CHECK: llvm.return
+# CHECK: }
+# CHECK-NOT: error:
