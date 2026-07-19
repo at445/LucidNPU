@@ -30,6 +30,7 @@ set(${TARGET_NAME}_LIBS
     LLVMX86CodeGen
     LLVMX86Desc
     LLVMX86Info
+    LLVMOrcJIT
 )
 
 add_llvm_executable(${TARGET_NAME}

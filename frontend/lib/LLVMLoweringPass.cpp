@@ -91,11 +91,11 @@ protected:
         // }
         llvm::SmallVector<Value, 4> loopIvs;
         for (unsigned i = 0, sum = memRefShape.size(); i < sum; ++i) {
-            auto lowerBound = rewriter.create<arith::ConstantIndexOp>(loc, 0);
-            auto upperBound = rewriter.create<arith::ConstantIndexOp>(loc, memRefShape[i]);
-            auto step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+            auto lowerBound = arith::ConstantIndexOp::create(rewriter, loc, 0);
+            auto upperBound = arith::ConstantIndexOp::create(rewriter, loc, memRefShape[i]);
+            auto step = arith::ConstantIndexOp::create(rewriter, loc, 1);
 
-            auto loop = rewriter.create<scf::ForOp>(loc, lowerBound, upperBound, step);
+            auto loop = scf::ForOp::create(rewriter, loc, lowerBound, upperBound, step);
             // scf::ForOp contains an additional YieldOp. manually clear it first.
             for (Operation &op : *loop.getBody())
                 rewriter.eraseOp(&op);
@@ -103,17 +103,17 @@ protected:
 
             rewriter.setInsertionPointToEnd(loop.getBody());
             if (i != sum - 1) {
-                rewriter.create<LLVM::CallOp>(loc, getPrintfType(context), printfRef, newLineCst);
+                LLVM::CallOp::create(rewriter, loc, getPrintfType(context), printfRef, newLineCst);
             }
-            rewriter.create<scf::YieldOp>(loc);
+            scf::YieldOp::create(rewriter, loc);
             rewriter.setInsertionPointToStart(loop.getBody());
         }
 
         // Generate a call to printf for the current element of the loop.
         //  %val = memref.load %a[%iv0, %iv1] : memref<2x2xf64>
         //  llvm.call @printf(%frmt_spec, %val) : (!llvm.ptr<i8>, f64) -> i32
-        auto loadOp = rewriter.create<memref::LoadOp>(loc, op.getInput(), loopIvs);
-        rewriter.create<LLVM::CallOp>(loc, getPrintfType(context),
+        auto loadOp = memref::LoadOp::create(rewriter, loc, op.getInput(), loopIvs);
+        LLVM::CallOp::create(rewriter, loc, getPrintfType(context),
          printfRef, ArrayRef<Value>({formatCst, loadOp}));
 
         rewriter.eraseOp(op);
@@ -141,7 +141,7 @@ private:
         // Insert the printf function into the body of the parent module.
         PatternRewriter::InsertionGuard guard(rewriter);
         rewriter.setInsertionPointToStart(module.getBody());
-        rewriter.create<LLVM::LLVMFuncOp>(module->getLoc(), printfName, getPrintfType(context));
+        LLVM::LLVMFuncOp::create(rewriter, module->getLoc(), printfName, getPrintfType(context));
         // because of LLVMFuncOp has Symbol trait, after created the symbolTable on moduleOp 
         // will be changed atuomatically.
         return SymbolRefAttr::get(context, printfName);
@@ -157,7 +157,7 @@ private:
 
             auto int8Typ = IntegerType::get(builder.getContext(), 8);
             auto arrayTyp = LLVM::LLVMArrayType::get(int8Typ, strValue.size());
-            globalOp = builder.create<LLVM::GlobalOp>(loc, arrayTyp, true, 
+            globalOp = LLVM::GlobalOp::create(builder, loc, arrayTyp, true, 
                 LLVM::Linkage::Internal, strName, 
                 // notes: The builder.getxxxAttr function is used to 
                 //        convert the object of the view class into an object on the IR tree.
@@ -166,14 +166,14 @@ private:
         }
 
         // create on GPEOp pointer to the first character of global string.
-        Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, globalOp);
+        Value globalPtr = LLVM::AddressOfOp::create(builder, loc, globalOp);
 
         auto int64Typ = IntegerType::get(builder.getContext(), 64);
         auto idxAttr = builder.getIndexAttr(0);
-        Value cst0 = builder.create<LLVM::ConstantOp>(loc, int64Typ, idxAttr);
+        Value cst0 = LLVM::ConstantOp::create(builder, loc, int64Typ, idxAttr);
 
         auto llvmPtrTyp = LLVM::LLVMPointerType::get(builder.getContext());
-        auto GEPOp = builder.create<LLVM::GEPOp>(loc,
+        auto GEPOp = LLVM::GEPOp::create(builder, loc,
             llvmPtrTyp, // the result type of GEPOp is an LLVMPointerType
             globalOp.getType(), //the element type of GEPOp is LLVMArrayType(int8)
             globalPtr,  // point to the global string pointer 

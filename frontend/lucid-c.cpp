@@ -6,7 +6,8 @@
 #include "ASTDumper.h"
 #include "MLIRGen.h"
 #include "Passes.h"
-#include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Affine/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
@@ -20,6 +21,7 @@
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
+#include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -301,8 +303,11 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    // Always lower to LLVM when running (runMode defaults to Native)
-    bool needLLVM = true;
+    // Only lower all the way to the LLVM dialect when we actually need LLVM IR
+    // (either to dump llvm-ir, or to JIT/native-compile when no -emit level is
+    // requested). Otherwise stop the pipeline at the requested dialect level so
+    // that -emit=toy / -emit=affine / -emit=LLVM dump the expected IR.
+    bool needLLVM = (emitAction == Action::None) || (emitAction == Action::DumpLLVM);
     mlir::MLIRContext context;
     mlir::OwningOpRef<mlir::ModuleOp> module = MLIRLowerProcess(context, moduleAST, needLLVM);
     if (!module) {

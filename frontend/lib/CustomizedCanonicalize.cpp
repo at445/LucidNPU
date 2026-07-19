@@ -49,7 +49,7 @@ class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
 
         if (lhsOperandTyp.getRank() ==1) {
             auto newTyp = mlir::RankedTensorType::get({1, lhsOperandTyp.getShape().front()}, lhsOperandTyp.getElementType());
-            auto reshapeOp = rewriter.create<lucid_frontend::ReshapeOp>(op->getLoc(), newTyp, op.getLhs());
+            auto reshapeOp = lucid_frontend::ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getLhs());
             
             Type resultTyp = op.getType();
             if (auto rhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getRhs().getType())) {
@@ -59,8 +59,8 @@ class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
                 }
             }
             
-            auto newOp = rewriter.create<lucid_frontend::MatrixMulOp>(
-                op.getLoc(), resultTyp, reshapeOp, op.getRhs());
+            auto newOp = lucid_frontend::MatrixMulOp::create(
+                rewriter, op.getLoc(), resultTyp, reshapeOp, op.getRhs());
             rewriter.replaceOp(op, newOp);
             
             return mlir::success();
@@ -85,7 +85,7 @@ class PromoteMaxtrixVector2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
 
         if (rhsOperandTyp.getRank() ==1) {
             auto newTyp = mlir::RankedTensorType::get({rhsOperandTyp.getShape().front(), 1}, rhsOperandTyp.getElementType());
-            auto reshapeOp = rewriter.create<lucid_frontend::ReshapeOp>(op->getLoc(), newTyp, op.getRhs());
+            auto reshapeOp = lucid_frontend::ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getRhs());
 
             Type resultTyp = op.getType();
             if (auto lhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getLhs().getType())) {
@@ -95,8 +95,8 @@ class PromoteMaxtrixVector2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
                 }
             } 
             
-            auto newOp = rewriter.create<lucid_frontend::MatrixMulOp>(
-                op.getLoc(), resultTyp, op.getLhs(), reshapeOp);
+            auto newOp = lucid_frontend::MatrixMulOp::create(
+                rewriter, op.getLoc(), resultTyp, op.getLhs(), reshapeOp);
             rewriter.replaceOp(op, newOp);
             
             return mlir::success();

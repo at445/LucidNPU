@@ -14,13 +14,13 @@ sudo apt install -y build-essential clang lld ninja-build cmake git python3 ccac
 
 ## 2. Compile LLVM/MLIR Dependencies
 
-Compile the MLIR project first. This project is developed using the `llvmorg-19.1.0` version. We only need to build MLIR and Clang. Clone the LLVM repository and check out the correct tag:
+Compile the MLIR project first. This project is developed using the `llvmorg-22.1.8` version. We only need to build MLIR and Clang. Clone the LLVM repository and check out the correct tag:
 
 ```bash
 cd ~
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout llvmorg-19.1.0
+git checkout llvmorg-22.1.8
 ```
 
 Then configure and build:

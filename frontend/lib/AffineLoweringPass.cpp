@@ -42,7 +42,7 @@ static MemRefType ConvertTensor2MemRef(RankedTensorType type) {
 
 static Value insertAllocAndDealloc(MemRefType type, Location loc,
                                    PatternRewriter &rewriter) {
-  auto alloc = rewriter.create<memref::AllocOp>(loc, type);
+  auto alloc = memref::AllocOp::create(rewriter, loc, type);
 
   // Make sure to allocate at the beginning of the block.
   auto parentBlock = alloc->getBlock();
@@ -50,7 +50,7 @@ static Value insertAllocAndDealloc(MemRefType type, Location loc,
 
   // Make sure to deallocate this alloc at the end of the block. This is fine
   // as toy functions have no control flow.
-  auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
+  auto dealloc = memref::DeallocOp::create(rewriter, loc, alloc);
   dealloc->moveBefore(&parentBlock->back());
   return alloc;
 }
@@ -104,12 +104,12 @@ public:
         affine::buildAffineLoopNest(rewriter, loc, lowBounds, shape, steps, 
             [&](OpBuilder &nestedBuilder, Location loc, ValueRange ivs){
                 typename BinaryOp::Adaptor  adaptor(operands);
-                auto lhsValue = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, adaptor.getLhs(), ivs);
-                auto rhsValue = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, adaptor.getRhs(), ivs);
-                auto binaryOpRsult = nestedBuilder.create<LowerBinaryOp>(loc, lhsValue, rhsValue);
-                nestedBuilder.create<affine::AffineStoreOp>(loc, binaryOpRsult, alloc, ivs);
+                auto lhsValue = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, adaptor.getLhs(), ivs);
+                auto rhsValue = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, adaptor.getRhs(), ivs);
+                auto binaryOpRsult = LowerBinaryOp::create(nestedBuilder, loc, lhsValue, rhsValue);
+                affine::AffineStoreOp::create(nestedBuilder, loc, binaryOpRsult, alloc, ivs);
         });
 
         rewriter.replaceOp(op, alloc);
@@ -157,9 +157,9 @@ class TransposeOpLowering : public OpConversionPattern<lucid_frontend::Transpose
             [&](OpBuilder &nestedBuilder, Location loc, ValueRange ivs){
                 llvm::SmallVector<Value, 4> values(ivs);
                 std::swap(values[values.size()-1], values[values.size()-2]);
-                auto loadVal = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, adaptor.getInput(), values);
-                nestedBuilder.create<affine::AffineStoreOp>(loc, loadVal, alloc, ivs);
+                auto loadVal = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, adaptor.getInput(), values);
+                affine::AffineStoreOp::create(nestedBuilder, loc, loadVal, alloc, ivs);
         });
 
         rewriter.replaceOp(op, alloc);
@@ -209,9 +209,9 @@ class MatrixMulOp : public OpConversionPattern<lucid_frontend::MatrixMulOp> {
         affine::buildAffineLoopNest(rewriter, loc, lowBounds, shape, steps, 
             [&](OpBuilder &nestedBuilder, Location loc, ValueRange ivs_outer)
         {
-            auto zero = nestedBuilder.create<arith::ConstantOp>(loc, 
+            auto zero = arith::ConstantOp::create(nestedBuilder, loc, 
                 nestedBuilder.getF64Type(), nestedBuilder.getF64FloatAttr(0.0));
-            nestedBuilder.create<affine::AffineStoreOp>(loc, zero, alloc, ivs_outer);
+            affine::AffineStoreOp::create(nestedBuilder, loc, zero, alloc, ivs_outer);
 
             auto tensorType = llvm::cast<RankedTensorType>(*op.operand_type_begin());
             auto K = tensorType.getShape().back();
@@ -223,26 +223,26 @@ class MatrixMulOp : public OpConversionPattern<lucid_frontend::MatrixMulOp> {
                 auto cache = values.back(); //%j
                 values.pop_back(); //[..., %i]
                 values.push_back(ivs_inner.front());//[..., %i, %k]
-                auto loadedLhs = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, adaptor.getLhs(), values);
+                auto loadedLhs = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, adaptor.getLhs(), values);
 
                 values.pop_back(); //[..., %i]
                 values.pop_back(); //[...]
                 values.push_back(ivs_inner.front()); //[..., %k]
                 values.push_back(cache); //[..., %k, %j]
-                auto loadedRhs = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, adaptor.getRhs(), values);
+                auto loadedRhs = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, adaptor.getRhs(), values);
 
-                auto mulVal =  nestedBuilder.create<arith::MulFOp>(
-                    loc, loadedLhs, loadedRhs);
+                auto mulVal =  arith::MulFOp::create(
+                    nestedBuilder, loc, loadedLhs, loadedRhs);
 
-                auto partial = nestedBuilder.create<affine::AffineLoadOp>(
-                    loc, alloc, ivs_outer);
+                auto partial = affine::AffineLoadOp::create(
+                    nestedBuilder, loc, alloc, ivs_outer);
                 
-                auto sumVal =  nestedBuilder.create<arith::AddFOp>(
-                    loc, partial, mulVal);
+                auto sumVal =  arith::AddFOp::create(
+                    nestedBuilder, loc, partial, mulVal);
                 
-                nestedBuilder.create<affine::AffineStoreOp>(loc, sumVal, alloc, ivs_outer);
+                affine::AffineStoreOp::create(nestedBuilder, loc, sumVal, alloc, ivs_outer);
             });
         });
 
@@ -271,7 +271,7 @@ struct FuncOpLowering : public OpConversionPattern<lucid_frontend::FuncOp> {
     }
 
     // Create a new non-toy function, with the same region.
-    auto func = rewriter.create<mlir::func::FuncOp>(op.getLoc(), op.getName(),
+    auto func = mlir::func::FuncOp::create(rewriter, op.getLoc(), op.getName(),
                                                     op.getFunctionType());
     rewriter.inlineRegionBefore(op.getRegion(), func.getBody(), func.end());
     rewriter.eraseOp(op);
@@ -301,7 +301,7 @@ struct ConstantOpLowering : public OpRewritePattern<lucid_frontend::ConstantOp> 
 
         llvm::SmallVector<mlir::Value> indexList;
         for (int64_t i = 0; i < maxIdx; ++i) {
-            indexList.push_back(rewriter.create<arith::ConstantIndexOp>(loc, i));
+            indexList.push_back(arith::ConstantIndexOp::create(rewriter, loc, i));
         }
 
         auto valueIt = constantValue.value_begin<FloatAttr>();
@@ -309,9 +309,9 @@ struct ConstantOpLowering : public OpRewritePattern<lucid_frontend::ConstantOp> 
         llvm::SmallVector<mlir::Value> values;
         int attrIdx = 0;
         recuriveCreatScala(memRefType.getShape(), indexList, values, [&](ValueRange vals) {
-            Value val = rewriter.create<arith::ConstantOp>(loc, memRefType.getElementType(), *valueIt++);
+            Value val = arith::ConstantOp::create(rewriter, loc, memRefType.getElementType(), *valueIt++);
             attrIdx++;
-            rewriter.create<affine::AffineStoreOp>(loc, val, alloc, vals);
+            affine::AffineStoreOp::create(rewriter, loc, val, alloc, vals);
         });
 
         rewriter.replaceOp(op, alloc);
@@ -355,8 +355,8 @@ struct ReshapeOpLowering : public OpConversionPattern<lucid_frontend::ReshapeOp>
                   ConversionPatternRewriter &rewriter) const final {
         auto tensorType = llvm::cast<RankedTensorType>(op.getType());
         auto memRefType = ConvertTensor2MemRef(tensorType);
-        auto castOp = rewriter.create<memref::CastOp>(
-            op.getLoc(), memRefType, adaptor.getInput());
+        auto castOp = memref::CastOp::create(
+            rewriter, op.getLoc(), memRefType, adaptor.getInput());
         rewriter.replaceOp(op, castOp);
         return mlir::success();
     }

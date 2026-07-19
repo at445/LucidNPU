@@ -54,7 +54,7 @@ struct ToyInlinerInterface : public DialectInlinerInterface {
         OpBuilder &builder, Value input,
         Type resultType, Location conversionLoc) const final 
     {
-        return builder.create<lucid_frontend::CastOp>(conversionLoc, resultType, input);
+        return lucid_frontend::CastOp::create(builder, conversionLoc, resultType, input);
     }
 };
 }
