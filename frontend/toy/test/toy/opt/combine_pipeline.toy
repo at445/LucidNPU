@@ -1,0 +1,18 @@
+# RUN: lucid-toy %s -emit=toy -opt 2>&1 | FileCheck %s
+#
+# Integration: reshape chain + redundant reshape + double transpose.
+
+def main() {
+  var h<3, 2> = [1, 2, 3, 4, 5, 6];
+  var g<2, 3> = h;
+  var i<2, 3> = g;
+  return transpose(transpose(i));
+}
+
+# CHECK: module {
+# CHECK: toy.func @main() -> tensor<*xf64> {
+# CHECK: toy.constant{{.*}}: tensor<2x3xf64>
+# CHECK: toy.return %{{[0-9]+}} : tensor<2x3xf64>
+# CHECK-NOT: toy.reshape
+# CHECK-NOT: toy.transpose
+# CHECK-NOT: error:

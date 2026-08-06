@@ -1,0 +1,20 @@
+# RUN: lucid-toy %s -emit=toy 2>&1 | FileCheck %s
+#
+# Integration: unused results are eliminated.
+
+def main() {
+  var d = [[1,2,3],[4,5,6]] + [[1,2,3],[4,5,6]] / [[1,2,3],[4,5,6]] - [[1,2,3],[4,5,6]] * [[1,2,3],[4,5,6]];
+  var e = d @ [1,2,3];
+}
+
+# CHECK: module {
+# CHECK: toy.func @main() {
+# CHECK: toy.return
+# CHECK: }
+# CHECK: }
+# CHECK-NOT: toy.add
+# CHECK-NOT: toy.div
+# CHECK-NOT: toy.sub
+# CHECK-NOT: toy.mul
+# CHECK-NOT: toy.matrix_mul
+# CHECK-NOT: error:

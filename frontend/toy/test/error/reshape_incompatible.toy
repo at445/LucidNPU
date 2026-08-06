@@ -1,0 +1,12 @@
+# RUN: not lucid-toy %s -emit=toy 2>&1 | FileCheck %s
+#
+# ReshapeOp verifier: static target shape must have the same element count.
+
+def main() {
+  var bad<2, 3> = [1, 2, 3, 4, 5];
+}
+
+# CHECK: incompatible reshape
+# CHECK: tensor<5xf64>
+# CHECK: tensor<2x3xf64>
+# CHECK: module verification error

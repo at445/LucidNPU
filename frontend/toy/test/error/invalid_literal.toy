@@ -1,0 +1,12 @@
+# RUN: not lucid-toy %s -emit=toy 2>&1 | FileCheck %s
+#
+# Invalid tensor literal: ragged nesting (row lengths differ).
+
+def main() {
+  var a = [[1, 2], [3, 4, 5]];
+}
+
+# CHECK: Parse error
+# CHECK: uniform well-nested dimensions
+# CHECK: missing initializer in variable declaration
+# CHECK: module verification error

@@ -1,0 +1,70 @@
+# RUN: lucid-toy %s -emit=affine -opt 2>&1 | FileCheck %s
+
+def do_matmul(a, b) {
+  return a @ b;
+}
+
+def main() {
+  var vec = [1, 2, 3];
+  var mat1 = [[1, 2], [3, 4], [5, 6]];
+  var mat2 = [[1, 2, 3], [4, 5, 6]];
+
+  var r1 = do_matmul(vec, mat1);
+  var r2 = do_matmul(mat2, vec);
+  var r3 = do_matmul(vec, vec);
+  
+  print(r1);
+  print(r2);
+  print(r3);
+}
+
+# The affine loop-fusion pass fuses the three matmul loop nests into a single
+# shared outer loop over the common dimension.
+#
+# CHECK:   func.func @main() {
+# CHECK-DAG:     %[[ALLOC:.*]] = memref.alloc() : memref<1x1xf64>
+# CHECK-DAG:     %[[ALLOC_0:.*]] = memref.alloc() : memref<2x1xf64>
+# CHECK-DAG:     %[[ALLOC_1:.*]] = memref.alloc() : memref<3x1xf64>
+# CHECK-DAG:     %[[ALLOC_2:.*]] = memref.alloc() : memref<1x2xf64>
+# CHECK-DAG:     %[[ALLOC_3:.*]] = memref.alloc() : memref<1x3xf64>
+# CHECK-DAG:     %[[ALLOC_4:.*]] = memref.alloc() : memref<2x3xf64>
+# CHECK-DAG:     %[[ALLOC_5:.*]] = memref.alloc() : memref<3x2xf64>
+#
+# CHECK:     affine.for %[[ARG0:.*]] = 0 to 1 {
+# CHECK:       affine.for %[[ARG1:.*]] = 0 to 2 {
+# CHECK:         affine.store %{{.*}}, %[[ALLOC_0]][%[[ARG1]], %{{.*}}] : memref<2x1xf64>
+# CHECK:         affine.for %[[ARG2:.*]] = 0 to 3 {
+# CHECK:           %[[VAL_0:.*]] = affine.load %[[ALLOC_4]][%[[ARG1]], %[[ARG2]]] : memref<2x3xf64>
+# CHECK:           %[[VAL_1:.*]] = affine.load %[[ALLOC_1]][%[[ARG2]], %{{.*}}] : memref<3x1xf64>
+# CHECK:           %[[VAL_2:.*]] = arith.mulf %[[VAL_0]], %[[VAL_1]] : f64
+# CHECK:           %[[VAL_3:.*]] = affine.load %[[ALLOC_0]][%[[ARG1]], %{{.*}}] : memref<2x1xf64>
+# CHECK:           %[[VAL_4:.*]] = arith.addf %[[VAL_3]], %[[VAL_2]] : f64
+# CHECK:           affine.store %[[VAL_4]], %[[ALLOC_0]][%[[ARG1]], %{{.*}}] : memref<2x1xf64>
+# CHECK:         }
+# CHECK:       }
+# CHECK:       affine.for %[[ARG1_1:.*]] = 0 to 2 {
+# CHECK:         affine.store %{{.*}}, %[[ALLOC_2]][%[[ARG0]], %[[ARG1_1]]] : memref<1x2xf64>
+# CHECK:         affine.for %[[ARG2_1:.*]] = 0 to 3 {
+# CHECK:           %[[VAL_0_1:.*]] = affine.load %[[ALLOC_3]][%[[ARG0]], %[[ARG2_1]]] : memref<1x3xf64>
+# CHECK:           %[[VAL_1_1:.*]] = affine.load %[[ALLOC_5]][%[[ARG2_1]], %[[ARG1_1]]] : memref<3x2xf64>
+# CHECK:           %[[VAL_2_1:.*]] = arith.mulf %[[VAL_0_1]], %[[VAL_1_1]] : f64
+# CHECK:           %[[VAL_3_1:.*]] = affine.load %[[ALLOC_2]][%[[ARG0]], %[[ARG1_1]]] : memref<1x2xf64>
+# CHECK:           %[[VAL_4_1:.*]] = arith.addf %[[VAL_3_1]], %[[VAL_2_1]] : f64
+# CHECK:           affine.store %[[VAL_4_1]], %[[ALLOC_2]][%[[ARG0]], %[[ARG1_1]]] : memref<1x2xf64>
+# CHECK:         }
+# CHECK:       }
+# CHECK:       affine.store %{{.*}}, %[[ALLOC]][%{{.*}}, %{{.*}}] : memref<1x1xf64>
+# CHECK:       affine.for %[[ARG1_2:.*]] = 0 to 3 {
+# CHECK:         %[[VAL_0_2:.*]] = affine.load %[[ALLOC_3]][%{{.*}}, %[[ARG1_2]]] : memref<1x3xf64>
+# CHECK:         %[[VAL_1_2:.*]] = affine.load %[[ALLOC_1]][%[[ARG1_2]], %{{.*}}] : memref<3x1xf64>
+# CHECK:         %[[VAL_2_2:.*]] = arith.mulf %[[VAL_0_2]], %[[VAL_1_2]] : f64
+# CHECK:         %[[VAL_3_2:.*]] = affine.load %[[ALLOC]][%{{.*}}, %{{.*}}] : memref<1x1xf64>
+# CHECK:         %[[VAL_4_2:.*]] = arith.addf %[[VAL_3_2]], %[[VAL_2_2]] : f64
+# CHECK:         affine.store %[[VAL_4_2]], %[[ALLOC]][%{{.*}}, %{{.*}}] : memref<1x1xf64>
+# CHECK:       }
+# CHECK:     }
+#
+# CHECK:     toy.print %[[ALLOC_2]] : memref<1x2xf64>
+# CHECK:     toy.print %[[ALLOC_0]] : memref<2x1xf64>
+# CHECK:     toy.print %[[ALLOC]] : memref<1x1xf64>
+# CHECK:     return

@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build lucid-c (Debug)",
+            "label": "Build lucid-toy (Debug)",
             "type": "shell",
-            "command": "cmake --preset debug && cmake --build --preset debug --target lucid-c",
+            "command": "cmake --preset debug && cmake --build --preset debug --target lucid-toy",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

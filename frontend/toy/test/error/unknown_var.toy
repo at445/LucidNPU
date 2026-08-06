@@ -1,0 +1,11 @@
+# RUN: not lucid-toy %s -emit=toy 2>&1 | FileCheck %s
+#
+# Unknown variable reference in initializer expression.
+
+def main() {
+  var a = b;
+}
+
+# CHECK: unknown variable 'b'
+# CHECK: convert MLIR value failed
+# CHECK: module verification error

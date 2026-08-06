@@ -1,0 +1,10 @@
+# RUN: not lucid-toy %s -emit=toy 2>&1 | FileCheck %s
+#
+# Element-wise add requires SameOperandsAndResultType (no broadcast yet).
+
+def main() {
+  var a = [1, 2] + [1, 2, 3];
+}
+
+# CHECK: requires the same type for all operands and results
+# CHECK: module verification error

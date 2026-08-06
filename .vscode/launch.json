@@ -2,16 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug lucid-c",
+            "name": "Debug lucid-toy",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/lucid-c",
+            "program": "${workspaceFolder}/build/bin/lucid-toy",
             "args": [
                 "${workspaceFolder}/frontend/test/test.toy",
                 "-emit=llvm",
             ],
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "Build lucid-c (Debug)",
+            "preLaunchTask": "Build lucid-toy (Debug)",
             "initCommands": [
                 "command script import ${env:HOME}/llvm-project/mlir/utils/lldb-scripts/mlirDataFormatters.py"
             ]
