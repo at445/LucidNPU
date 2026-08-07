@@ -3,17 +3,37 @@
     "configurations": [
         {
             "name": "Debug lucid-toy",
-            "type": "lldb",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/lucid-toy",
             "args": [
-                "${workspaceFolder}/frontend/test/test.toy",
-                "-emit=llvm",
+                "${workspaceFolder}/frontend/toy/test/test.toy",
+                "--emit=toy"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build lucid-toy (Debug)",
-            "initCommands": [
-                "command script import ${env:HOME}/llvm-project/mlir/utils/lldb-scripts/mlirDataFormatters.py"
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "stopAtEntry": true,
+            "externalConsole": false,
+            "logging": {
+                "engineLogging": true,
+                "trace": true,
+                "traceResponse": true
+            },
+            "setupCommands": [
+                {
+                    "text": "set debuginfod enabled off",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "source ${env:HOME}/llvm-project/mlir/utils/gdb-scripts/prettyprinters.py",
+                    "ignoreFailures": true
+                }
             ]
         }
     ]

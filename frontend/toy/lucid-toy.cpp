@@ -50,7 +50,8 @@ namespace {
     enum Action {
         None, 
         DumpAST, 
-        DumpToyMLIR,
+        DumpMLIRToy,
+        DumpMLIRLinalg,
         DumpMLIRAffine,
         DumpMLIRLLVM,
         DumpLLVM,
@@ -70,7 +71,8 @@ static cl::opt<std::string> inputFileName(cl::Positional,
 static cl::opt<enum Action> emitAction( "emit", 
                                         cl::desc("Select the kind of output desired"),
                                         cl::values(clEnumValN(DumpAST, "ast", "dump AST")),
-                                        cl::values(clEnumValN(DumpToyMLIR, "toy", "dump toy MLIR")),
+                                        cl::values(clEnumValN(DumpMLIRToy, "toy", "dump toy MLIR")),
+                                        cl::values(clEnumValN(DumpMLIRLinalg, "linalg", "dump linalg MLIR")),
                                         cl::values(clEnumValN(DumpMLIRAffine, "affine", "dump affine Dialect")),
                                         cl::values(clEnumValN(DumpMLIRLLVM, "LLVM", "dump LLVM Dialect")),
                                         cl::values(clEnumValN(DumpLLVM, "llvm-ir", "dump llvm IR"))
@@ -105,7 +107,9 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &con
 {
     // Register the func dialect inliner extension
     mlir::DialectRegistry registry;
+    mlir::LLVM::registerInlinerInterface(registry);
     mlir::func::registerInlinerExtension(registry);
+    
     context.appendDialectRegistry(registry);
     // Load our Dialect in this MLIR Context.
     context.getOrLoadDialect<ToyDialect>();
@@ -120,13 +124,19 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &con
     pm.addPass(mlir::createInlinerPass());
 
     auto needCaonicalizer = (needLLVM || emitAction >= Action::DumpMLIRAffine);
+    auto lowering2Linalg = (emitAction == Action::DumpMLIRLinalg);
     auto lowering2Affine = (needLLVM || emitAction >= Action::DumpMLIRAffine);
     auto lowering2LLVM = (needLLVM || emitAction >= Action::DumpMLIRLLVM);
     mlir::OpPassManager &shapePM = pm.nest<FuncOp>();
     shapePM.addPass(createShapeInferencePass());
+
     if (enableOpt || needCaonicalizer) {
         shapePM.addPass(mlir::createCanonicalizerPass());
         shapePM.addPass(mlir::createCSEPass());
+    }
+
+    if (lowering2Linalg) {
+        pm.addPass(createLinalgLoweringPass());
     }
 
     if (lowering2Affine) {
@@ -316,7 +326,7 @@ int main(int argc, char **argv) {
     }
 
     // Dump MLIR at the requested level
-    if (emitAction >= Action::DumpToyMLIR && emitAction <= Action::DumpMLIRLLVM) {
+    if (emitAction >= Action::DumpMLIRToy && emitAction <= Action::DumpMLIRLLVM) {
         module->dump();
         return 0;
     }

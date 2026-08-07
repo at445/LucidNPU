@@ -41,6 +41,7 @@ add_llvm_executable(${TARGET_NAME}
     lib/AffineLoweringPass.cpp
     lib/CustomizedCanonicalize.cpp
     lib/LLVMLoweringPass.cpp
+    lib/LinAlgLoweringPass.cpp
     lucid-toy.cpp
 )
 

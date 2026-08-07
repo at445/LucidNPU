@@ -3,6 +3,7 @@
     "cmake.configureOnOpen": true,
     "cmake.configurePreset": "debug",
     "cmake.buildPreset": "debug",
+    "C_Cpp.intelliSenseEngine": "disabled",
     "files.associations": {
         "*.h.inc": "cpp",
         "*.cpp.inc": "cpp"

@@ -261,12 +261,12 @@ def TransposeOp : Toy_Op<"transpose",
     $input `:` type($input) attr-dict `to` type(results)
   }];
 
-      let builders = [
-        // Build a constant with a given constant tensor value.
-        OpBuilder<(ins "::mlir::Value":$value), [{
-            build($_builder, $_state, value.getType(), value);
-        }]>,
-    ];
+  let builders = [
+    // Build a constant with a given constant tensor value.
+    OpBuilder<(ins "::mlir::Value":$value), [{
+      build($_builder, $_state, value.getType(), value);
+    }]>,
+  ];
 
   let hasCanonicalizer = 1;
 
