@@ -7,7 +7,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include <string>
 
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
 
 /// Return a formatted string for the location of any node
 template <typename T>
@@ -64,5 +65,5 @@ private:
 
   int curIndent = 0;
 };
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy
 #endif

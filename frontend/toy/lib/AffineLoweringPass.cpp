@@ -35,6 +35,7 @@
 #include <numeric>
 #include <utility>
 using namespace ::mlir;
+using namespace lucid_frontend::toy;
 namespace {
 static MemRefType ConvertTensor2MemRef(RankedTensorType type) {
     return MemRefType::get(type.getShape(), type.getElementType());
@@ -55,10 +56,10 @@ static Value insertAllocAndDealloc(MemRefType type, Location loc,
   return alloc;
 }
 
-struct ReturnOpLowering: public OpRewritePattern<lucid_frontend::ReturnOp> {
-    using OpRewritePattern<lucid_frontend::ReturnOp>::OpRewritePattern;
+struct ReturnOpLowering: public OpRewritePattern<ReturnOp> {
+    using OpRewritePattern<ReturnOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::ReturnOp op,
+    LogicalResult matchAndRewrite(ReturnOp op,
                                         PatternRewriter &rewriter) const final {
         if (op->getOperands().size() > 0) {
             return mlir::failure();
@@ -116,15 +117,15 @@ public:
         return llvm::success();
     }
 };
-using AddOpLowering = BinaryOpLowering<lucid_frontend::AddOp, arith::AddFOp>;
-using SubOpLowering = BinaryOpLowering<lucid_frontend::SubOp, arith::SubFOp>;
-using MulOpLowering = BinaryOpLowering<lucid_frontend::MulOp, arith::MulFOp>;
-using DivOpLowering = BinaryOpLowering<lucid_frontend::DivOp, arith::DivFOp>;
+using AddOpLowering = BinaryOpLowering<AddOp, arith::AddFOp>;
+using SubOpLowering = BinaryOpLowering<SubOp, arith::SubFOp>;
+using MulOpLowering = BinaryOpLowering<MulOp, arith::MulFOp>;
+using DivOpLowering = BinaryOpLowering<DivOp, arith::DivFOp>;
 
-class TransposeOpLowering : public OpConversionPattern<lucid_frontend::TransposeOp> {
-    using OpConversionPattern<lucid_frontend::TransposeOp>::OpConversionPattern;
+class TransposeOpLowering : public OpConversionPattern<TransposeOp> {
+    using OpConversionPattern<TransposeOp>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::TransposeOp op, OpAdaptor adaptor,
+    LogicalResult matchAndRewrite(TransposeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final 
     {
 
@@ -168,10 +169,10 @@ class TransposeOpLowering : public OpConversionPattern<lucid_frontend::Transpose
 };
 
 
-class MatrixMulOp : public OpConversionPattern<lucid_frontend::MatrixMulOp> {
-    using OpConversionPattern<lucid_frontend::MatrixMulOp>::OpConversionPattern;
+class MatrixMulOpLowering : public OpConversionPattern<MatrixMulOp> {
+    using OpConversionPattern<MatrixMulOp>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::MatrixMulOp op, OpAdaptor adaptor,
+    LogicalResult matchAndRewrite(MatrixMulOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final 
     {
         auto loc = op->getLoc();
@@ -252,11 +253,11 @@ class MatrixMulOp : public OpConversionPattern<lucid_frontend::MatrixMulOp> {
 };
 
 
-struct FuncOpLowering : public OpConversionPattern<lucid_frontend::FuncOp> {
-  using OpConversionPattern<lucid_frontend::FuncOp>::OpConversionPattern;
+struct FuncOpLowering : public OpConversionPattern<FuncOp> {
+  using OpConversionPattern<FuncOp>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(lucid_frontend::FuncOp op, OpAdaptor adaptor,
+  matchAndRewrite(FuncOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     // We only lower the main function as we expect that all other functions
     // have been inlined.
@@ -280,10 +281,10 @@ struct FuncOpLowering : public OpConversionPattern<lucid_frontend::FuncOp> {
 };
 
 
-struct ConstantOpLowering : public OpRewritePattern<lucid_frontend::ConstantOp> {
-    using OpRewritePattern<lucid_frontend::ConstantOp>::OpRewritePattern;
+struct ConstantOpLowering : public OpRewritePattern<ConstantOp> {
+    using OpRewritePattern<ConstantOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::ConstantOp op,
+    LogicalResult matchAndRewrite(ConstantOp op,
                                     PatternRewriter &rewriter) const final {
         DenseElementsAttr constantValue = op.getValue();
         Location loc = op.getLoc();
@@ -338,20 +339,20 @@ private:
     }
 };
 
-struct PrintOpLowering : public OpConversionPattern<lucid_frontend::PrintOp> {
-    using OpConversionPattern<lucid_frontend::PrintOp>::OpConversionPattern;
+struct PrintOpLowering : public OpConversionPattern<PrintOp> {
+    using OpConversionPattern<PrintOp>::OpConversionPattern;
     LogicalResult
-    matchAndRewrite(lucid_frontend::PrintOp op, OpAdaptor adaptor,
+    matchAndRewrite(PrintOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
-        rewriter.replaceOpWithNewOp<lucid_frontend::PrintOp>(op, adaptor.getInput());
+        rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.getInput());
         return mlir::success();
     }
 };
 
-struct ReshapeOpLowering : public OpConversionPattern<lucid_frontend::ReshapeOp> {
-    using OpConversionPattern<lucid_frontend::ReshapeOp>::OpConversionPattern;
+struct ReshapeOpLowering : public OpConversionPattern<ReshapeOp> {
+    using OpConversionPattern<ReshapeOp>::OpConversionPattern;
     LogicalResult
-    matchAndRewrite(lucid_frontend::ReshapeOp op, OpAdaptor adaptor,
+    matchAndRewrite(ReshapeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
         auto tensorType = llvm::cast<RankedTensorType>(op.getType());
         auto memRefType = ConvertTensor2MemRef(tensorType);
@@ -384,8 +385,8 @@ public:
         target.addLegalDialect<affine::AffineDialect, func::FuncDialect,
         arith::ArithDialect, memref::MemRefDialect, BuiltinDialect>();
 
-        target.addIllegalDialect<lucid_frontend::ToyDialect>();
-        target.addDynamicallyLegalOp<lucid_frontend::PrintOp>([](auto op){
+        target.addIllegalDialect<ToyDialect>();
+        target.addDynamicallyLegalOp<PrintOp>([](auto op){
             return llvm::none_of(op->getOperandTypes(), [](auto typ){
                 return llvm::isa<TensorType>(typ);
             });
@@ -396,7 +397,7 @@ public:
         patterns.add<ConstantOpLowering, ReturnOpLowering, FuncOpLowering,
                     PrintOpLowering, TransposeOpLowering, ReshapeOpLowering,
                     AddOpLowering, SubOpLowering, MulOpLowering, DivOpLowering,
-                    MatrixMulOp>(context);
+                    MatrixMulOpLowering>(context);
 
         if (llvm::failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
             signalPassFailure();
@@ -406,6 +407,6 @@ public:
 }
 
 
-std::unique_ptr<mlir::Pass> lucid_frontend::createAffineLoweringPass() {
+std::unique_ptr<mlir::Pass> lucid_frontend::toy::createAffineLoweringPass() {
     return std::make_unique<AffineLoweringPass>();
 }

@@ -17,7 +17,8 @@
 
 #include <string>
 
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
 
 /// Structure definition a location in a file.
 struct Location {
@@ -225,6 +226,6 @@ private:
   }
   const char *current, *end;
 };
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy
 
 #endif // LUCID_FRONTEND_LEXER_H

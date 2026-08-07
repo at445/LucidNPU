@@ -25,7 +25,7 @@ include "ShapeInfrenceOpInterface.td"
 // can define our operations.
 def Toy_Dialect : Dialect {
   let name = "toy";
-  let cppNamespace = "::lucid_frontend";
+  let cppNamespace = "::lucid_frontend::toy";
 }
 
 // Base class for toy dialect operations. This operation inherits from the base

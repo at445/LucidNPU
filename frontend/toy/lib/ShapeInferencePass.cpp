@@ -18,13 +18,15 @@
 
 #define DEBUG_TYPE "shape-inference"
 using namespace mlir;
-using namespace lucid_frontend;
+using namespace lucid_frontend::toy;
+namespace lucid_frontend {
 #include "ShapeInfrenceOpInterface.cpp.inc"
+}
 
 namespace {
 
 class ShapeInferencePass
-    : public mlir::PassWrapper<ShapeInferencePass, OperationPass<::lucid_frontend::FuncOp>> {
+    : public mlir::PassWrapper<ShapeInferencePass, OperationPass<FuncOp>> {
 public:
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ShapeInferencePass)
 
@@ -45,7 +47,7 @@ protected:
             Operation * op = *iter;
 
             LLVM_DEBUG(llvm::dbgs() << "Inferring shape for: " << *op << "\n");
-            if (auto inferOp = llvm::dyn_cast<ShapeInference>(*op)) {
+            if (auto inferOp = llvm::dyn_cast<lucid_frontend::ShapeInference>(*op)) {
                 inferOp.inferShapes();
             } else {
                 op->emitError("unable to infer shape of operation without shape "
@@ -77,6 +79,6 @@ protected:
 };
 }
 
-std::unique_ptr<mlir::Pass> lucid_frontend::createShapeInferencePass() {
+std::unique_ptr<mlir::Pass> lucid_frontend::toy::createShapeInferencePass() {
     return std::make_unique<ShapeInferencePass>();
 }

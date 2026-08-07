@@ -5,8 +5,7 @@
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/Casting.h"
 using namespace mlir;
-using namespace lucid_frontend;
-std::optional<RankedTensorType> inferMatmulResultType(RankedTensorType lhs, 
+using namespace lucid_frontend::toy;using namespace lucid_frontend::toy;std::optional<RankedTensorType> inferMatmulResultType(RankedTensorType lhs, 
     RankedTensorType rhs,Type elementType);
 namespace {
     /// Include the patterns defined in the Declarative Rewrite framework.
@@ -17,17 +16,17 @@ namespace {
 //      %1 = toy.transpose %0 : tensor<6xf64> to tensor<6xf64>
 // to:
 //      %1 = toy.reshape %0 : tensor<6xf64> to tensor<6x1xf64>
-class TansposeVector2Reshape: public OpRewritePattern<lucid_frontend::TransposeOp> {
-    using OpRewritePattern<lucid_frontend::TransposeOp>::OpRewritePattern;
+class TansposeVector2Reshape: public OpRewritePattern<TransposeOp> {
+    using OpRewritePattern<TransposeOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::TransposeOp op,
+    LogicalResult matchAndRewrite(TransposeOp op,
                                         PatternRewriter &rewriter) const final {
         auto operandTyp = llvm::dyn_cast<RankedTensorType>(op->getOperandTypes().front());
         if (!operandTyp) return mlir::failure();
 
         if (operandTyp.getRank() ==1) {
             auto newTyp = mlir::RankedTensorType::get({operandTyp.getShape().front(), 1}, operandTyp.getElementType());
-            rewriter.replaceOpWithNewOp<lucid_frontend::ReshapeOp>(op, newTyp, op->getOperands().front());
+            rewriter.replaceOpWithNewOp<ReshapeOp>(op, newTyp, op->getOperands().front());
         }
         return mlir::success();
     }
@@ -39,17 +38,17 @@ class TansposeVector2Reshape: public OpRewritePattern<lucid_frontend::TransposeO
 // to:
 //      %3 = toy.reshape %0 : tensor<6xf64> to tensor<1x6xf64>
 //      %2 = toy.matrix_mul %3, %1 : tensor<1x6xf64>, tensor<..xf64> -> tensor<..xf64>
-class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<lucid_frontend::MatrixMulOp> {
-    using OpRewritePattern<lucid_frontend::MatrixMulOp>::OpRewritePattern;
+class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<MatrixMulOp> {
+    using OpRewritePattern<MatrixMulOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::MatrixMulOp op,
+    LogicalResult matchAndRewrite(MatrixMulOp op,
                                         PatternRewriter &rewriter) const final {
         auto lhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getLhs().getType());
         if (!lhsOperandTyp) return mlir::failure();
 
         if (lhsOperandTyp.getRank() ==1) {
             auto newTyp = mlir::RankedTensorType::get({1, lhsOperandTyp.getShape().front()}, lhsOperandTyp.getElementType());
-            auto reshapeOp = lucid_frontend::ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getLhs());
+            auto reshapeOp = ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getLhs());
             
             Type resultTyp = op.getType();
             if (auto rhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getRhs().getType())) {
@@ -59,7 +58,7 @@ class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
                 }
             }
             
-            auto newOp = lucid_frontend::MatrixMulOp::create(
+            auto newOp = MatrixMulOp::create(
                 rewriter, op.getLoc(), resultTyp, reshapeOp, op.getRhs());
             rewriter.replaceOp(op, newOp);
             
@@ -75,17 +74,17 @@ class PromoteVectorMaxtrix2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
 // to:
 //      %3 = toy.reshape %0 : tensor<6xf64> to tensor<6x1xf64>
 //      %2 = toy.matrix_mul %3, %1 : tensor<..xf64>, tensor<6x1xf64> -> tensor<..xf64>
-class PromoteMaxtrixVector2MaxtrixMaxtrix : public OpRewritePattern<lucid_frontend::MatrixMulOp> {
-    using OpRewritePattern<lucid_frontend::MatrixMulOp>::OpRewritePattern;
+class PromoteMaxtrixVector2MaxtrixMaxtrix : public OpRewritePattern<MatrixMulOp> {
+    using OpRewritePattern<MatrixMulOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(lucid_frontend::MatrixMulOp op,
+    LogicalResult matchAndRewrite(MatrixMulOp op,
                                         PatternRewriter &rewriter) const final {
         auto rhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getRhs().getType());
         if (!rhsOperandTyp) return mlir::failure();
 
         if (rhsOperandTyp.getRank() ==1) {
             auto newTyp = mlir::RankedTensorType::get({rhsOperandTyp.getShape().front(), 1}, rhsOperandTyp.getElementType());
-            auto reshapeOp = lucid_frontend::ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getRhs());
+            auto reshapeOp = ReshapeOp::create(rewriter, op->getLoc(), newTyp, op.getRhs());
 
             Type resultTyp = op.getType();
             if (auto lhsOperandTyp = llvm::dyn_cast<RankedTensorType>(op.getLhs().getType())) {
@@ -95,7 +94,7 @@ class PromoteMaxtrixVector2MaxtrixMaxtrix : public OpRewritePattern<lucid_fronte
                 }
             } 
             
-            auto newOp = lucid_frontend::MatrixMulOp::create(
+            auto newOp = MatrixMulOp::create(
                 rewriter, op.getLoc(), resultTyp, op.getLhs(), reshapeOp);
             rewriter.replaceOp(op, newOp);
             

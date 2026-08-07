@@ -28,7 +28,8 @@
 #include <utility>
 #include <vector>
 
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
 
 /// This is a simple recursive parser for the Toy language. It produces a well
 /// formed AST from a stream of Token supplied by the Lexer. Memory is managed
@@ -503,6 +504,6 @@ private:
 
 };
 
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy
 
 #endif // LUCID_FRONTEND_PARSER_H

@@ -53,14 +53,15 @@
 #include <memory>
 #include <utility>
 using namespace mlir;
+using namespace lucid_frontend::toy;
 namespace  {
 /// Lowers `toy.print` to a loop nest calling `printf` on each of the individual
 /// elements of the array.
 
-class PrintOpLowering: public mlir::OpRewritePattern<lucid_frontend::PrintOp> {
-    using OpRewritePattern<lucid_frontend::PrintOp>::OpRewritePattern;
+class PrintOpLowering: public mlir::OpRewritePattern<PrintOp> {
+    using OpRewritePattern<PrintOp>::OpRewritePattern;
 protected:
-    mlir::LogicalResult matchAndRewrite(lucid_frontend::PrintOp op,
+    mlir::LogicalResult matchAndRewrite(PrintOp op,
                                         mlir::PatternRewriter &rewriter) const final {
         auto *context = rewriter.getContext();
         auto memRefType = llvm::cast<MemRefType>((*op->operand_type_begin()));
@@ -220,6 +221,6 @@ public:
 
 /// Create a pass for lowering operations the remaining `Toy` operations, as
 /// well as `Affine` and `Std`, to the LLVM dialect for codegen.
-std::unique_ptr<mlir::Pass> lucid_frontend::createLowerToLLVMPass() {
+std::unique_ptr<mlir::Pass> lucid_frontend::toy::createLowerToLLVMPass() {
   return std::make_unique<LLVMLoweringPass>();
 }

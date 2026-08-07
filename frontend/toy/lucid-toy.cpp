@@ -44,7 +44,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
 #include <optional>
-
+using namespace lucid_frontend::toy;
 namespace cl = llvm::cl;
 namespace {
     enum Action {
@@ -87,7 +87,7 @@ static cl::opt<bool> enableOpt("opt",
                                cl::init(false));
 
 /// Returns a lucid_frontend AST resulting from parsing the file or a nullptr on error.
-static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
+static ModuleAST * parseInputFile(llvm::StringRef filename) {
   static llvm::BumpPtrAllocator allocator;
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
       llvm::MemoryBuffer::getFileOrSTDIN(filename);
@@ -96,19 +96,19 @@ static lucid_frontend::ModuleAST * parseInputFile(llvm::StringRef filename) {
     return nullptr;
   }
   auto buffer = fileOrErr.get()->getBuffer();
-  lucid_frontend::LexerBuffer lexer(buffer.begin(), buffer.end(), filename);
-  lucid_frontend::Parser parser(allocator, lexer);
+  LexerBuffer lexer(buffer.begin(), buffer.end(), filename);
+  Parser parser(allocator, lexer);
   return parser.parseModule();
 }
 
-static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &context, lucid_frontend::ModuleAST * moduleAST, bool needLLVM) 
+static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &context, ModuleAST * moduleAST, bool needLLVM) 
 {
     // Register the func dialect inliner extension
     mlir::DialectRegistry registry;
     mlir::func::registerInlinerExtension(registry);
     context.appendDialectRegistry(registry);
     // Load our Dialect in this MLIR Context.
-    context.getOrLoadDialect<lucid_frontend::ToyDialect>();
+    context.getOrLoadDialect<ToyDialect>();
     mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
     if (!module) {
         llvm::errs() << "MLIR generation failed\n";
@@ -122,15 +122,15 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &con
     auto needCaonicalizer = (needLLVM || emitAction >= Action::DumpMLIRAffine);
     auto lowering2Affine = (needLLVM || emitAction >= Action::DumpMLIRAffine);
     auto lowering2LLVM = (needLLVM || emitAction >= Action::DumpMLIRLLVM);
-    mlir::OpPassManager &shapePM = pm.nest<lucid_frontend::FuncOp>();
-    shapePM.addPass(lucid_frontend::createShapeInferencePass());
+    mlir::OpPassManager &shapePM = pm.nest<FuncOp>();
+    shapePM.addPass(createShapeInferencePass());
     if (enableOpt || needCaonicalizer) {
         shapePM.addPass(mlir::createCanonicalizerPass());
         shapePM.addPass(mlir::createCSEPass());
     }
 
     if (lowering2Affine) {
-        pm.addPass(lucid_frontend::createAffineLoweringPass());
+        pm.addPass(createAffineLoweringPass());
         mlir::OpPassManager &optPM = pm.nest<mlir::func::FuncOp>();
         // Add a few cleanups post lowering.
         optPM.addPass(mlir::createCanonicalizerPass());
@@ -143,7 +143,7 @@ static mlir::OwningOpRef<mlir::ModuleOp> MLIRLowerProcess(mlir::MLIRContext &con
     }
 
     if (lowering2LLVM) {
-        pm.addPass(lucid_frontend::createLowerToLLVMPass());
+        pm.addPass(createLowerToLLVMPass());
         pm.addPass(mlir::LLVM::createDIScopeForLLVMFuncOpPass());
     }
 
@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
     }
 
     if (emitAction == Action::DumpAST) {
-        lucid_frontend::ASTDumper::getInstance().Dump(moduleAST);
+        ASTDumper::getInstance().Dump(moduleAST);
         return 0;
     }
 

@@ -29,6 +29,7 @@
 #include <vector>
 #include <iostream>
 using namespace lucid_frontend;
+using namespace lucid_frontend::toy;
 namespace {
 class MLIRGenImpl {
 public:
@@ -47,7 +48,7 @@ public:
     }
 
 private:
-    llvm::StringMap<::lucid_frontend::FuncOp> FunctionDecl;
+    llvm::StringMap<FuncOp> FunctionDecl;
 
     void mlirGen(const FunctionAST& functionAST) {
         // create a symbolTable for function scope
@@ -56,7 +57,7 @@ private:
 
         m_builder.setInsertionPointToEnd(m_module.getBody());
         // Create an MLIR function for the given prototype.
-        lucid_frontend::FuncOp function = mlirGen(*proto);
+        FuncOp function = mlirGen(*proto);
         if (!function) 
             return;
         
@@ -81,13 +82,13 @@ private:
                 return;
         }
         
-        lucid_frontend::ReturnOp returnOp = nullptr;
+        ReturnOp returnOp = nullptr;
         if (!entryBlock.empty())
-            returnOp = llvm::dyn_cast<lucid_frontend::ReturnOp>(entryBlock.back());
+            returnOp = llvm::dyn_cast<ReturnOp>(entryBlock.back());
         
         // Implicit void return if the function body didn't end with return.
         if (!returnOp) {
-            returnOp = lucid_frontend::ReturnOp::create(m_builder, locConvert(proto->loc()));
+            returnOp = ReturnOp::create(m_builder, locConvert(proto->loc()));
             return;
         }
 
@@ -102,9 +103,9 @@ private:
             mlir::Value expr = mlirGen(**returnAST.getExpr());
             if (!expr)
                 return mlir::failure();
-            lucid_frontend::ReturnOp::create(m_builder, loc, expr);
+            ReturnOp::create(m_builder, loc, expr);
         } else {
-            lucid_frontend::ReturnOp::create(m_builder, loc, mlir::ValueRange{});
+            ReturnOp::create(m_builder, loc, mlir::ValueRange{});
         }
         return mlir::success();
     }
@@ -155,7 +156,7 @@ private:
 
         auto typ = varDeclAst.getType();
         if(typ && *typ) {
-            value = lucid_frontend::ReshapeOp::create(
+            value = ReshapeOp::create(
                 m_builder, locConvert(varDeclAst.loc()),  typeConvert(**typ), value);
         }
 
@@ -196,7 +197,7 @@ private:
     mlir::Value mlirGen(const PrintExprAST &printExpr) {
         auto value = mlirGen(*printExpr.getArg());
         if (!value) return nullptr;
-        lucid_frontend::PrintOp::create(m_builder, locConvert(printExpr.loc()), value);
+        PrintOp::create(m_builder, locConvert(printExpr.loc()), value);
         return nullptr;
     } 
 
@@ -204,7 +205,7 @@ private:
         auto value = mlirGen(*transExpr.getArg());
         if (!value) return nullptr;
         
-        return lucid_frontend::TransposeOp::create(
+        return TransposeOp::create(
             m_builder,
             locConvert(transExpr.loc()), 
             getType({}),
@@ -223,7 +224,7 @@ private:
             if (!val) return nullptr;
             values.push_back(val);
         }
-        return lucid_frontend::GenericCallOp::create(
+        return GenericCallOp::create(
             m_builder,
             locConvert(callExpr.loc()), 
             it->second.getFunctionType().getResult(0),
@@ -241,15 +242,15 @@ private:
         auto loc = locConvert(binaryExpr.loc());
         switch (op) {
             case '+':
-                return lucid_frontend::AddOp::create(m_builder, loc, lhs, rhs);
+                return AddOp::create(m_builder, loc, lhs, rhs);
             case '-':
-                return lucid_frontend::SubOp::create(m_builder, loc, lhs, rhs);
+                return SubOp::create(m_builder, loc, lhs, rhs);
             case '*':
-                return lucid_frontend::MulOp::create(m_builder, loc, lhs, rhs);
+                return MulOp::create(m_builder, loc, lhs, rhs);
             case '/':
-                return lucid_frontend::DivOp::create(m_builder, loc, lhs, rhs);
+                return DivOp::create(m_builder, loc, lhs, rhs);
             case '@':
-                return lucid_frontend::MatrixMulOp::create(m_builder, loc, lhs, rhs);
+                return MatrixMulOp::create(m_builder, loc, lhs, rhs);
             default:
                 llvm_unreachable("unknown binary op");
         }
@@ -266,7 +267,7 @@ private:
 
     mlir::Value mlirGen(const NumberExprAST &number) {
         auto loc = locConvert(number.loc());
-        return lucid_frontend::ConstantOp::create(m_builder, loc,  number.getValue());
+        return ConstantOp::create(m_builder, loc,  number.getValue());
     }
 
     mlir::Value mlirGen(const LiteralExprAST &literal) {
@@ -282,7 +283,7 @@ private:
 
         auto dataAttribute = mlir::DenseElementsAttr::get(mlirType, llvm::ArrayRef(data));
 
-        return lucid_frontend::ConstantOp::create(m_builder, locConvert(literal.loc()), type, dataAttribute);
+        return ConstantOp::create(m_builder, locConvert(literal.loc()), type, dataAttribute);
     }
 
     void collectData(const ExprAST &expr, std::vector<double> &data) {
@@ -303,7 +304,7 @@ private:
         return mlir::success();
     }
     
-    lucid_frontend::FuncOp mlirGen(const PrototypeAST & prototypeAST) {
+    FuncOp mlirGen(const PrototypeAST & prototypeAST) {
         auto loc = locConvert(prototypeAST.loc());
         // This is a generic function, the return type will be inferred later.
         // Arguments type are uniformly unranked tensors.
@@ -311,7 +312,7 @@ private:
                                                   getType({}));
         auto funcType = m_builder.getFunctionType(argTypes, mlir::TypeRange());
 
-        return lucid_frontend::FuncOp::create(m_builder, loc, prototypeAST.getName(), funcType);
+        return FuncOp::create(m_builder, loc, prototypeAST.getName(), funcType);
     }
 
     mlir::Type getType(llvm::ArrayRef<int64_t> shape) {
@@ -336,9 +337,9 @@ private:
 };
 }
 
-namespace lucid_frontend {
+namespace lucid_frontend { namespace toy {
     // The public API for codegen.
     mlir::OwningOpRef<mlir::ModuleOp> mlirGen(mlir::MLIRContext &context, ModuleAST &moduleAST) {
         return MLIRGenImpl(context).mlirGen(moduleAST);
     }
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy

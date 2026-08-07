@@ -16,7 +16,7 @@
 #include "AST.h"
 #include "llvm/Support/Casting.h"
 
-namespace lucid_frontend {
+namespace lucid_frontend { namespace toy {
 template <typename Derived, typename RetTy = void>
 class ASTVisitor {
 protected:
@@ -78,5 +78,5 @@ protected:
     return static_cast<Derived *>(this)->visitModule(ptr);
   }
 };
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy
 #endif

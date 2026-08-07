@@ -5,10 +5,11 @@
 #include "mlir/Pass/Pass.h"
 
 
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
     std::unique_ptr<mlir::Pass> createShapeInferencePass();
     std::unique_ptr<mlir::Pass> createAffineLoweringPass();
     std::unique_ptr<mlir::Pass> createLowerToLLVMPass();
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy
 
 #endif // LUCID_FRONT_END_PASSES_H

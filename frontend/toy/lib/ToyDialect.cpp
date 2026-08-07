@@ -27,7 +27,7 @@
 #include <string>
 #include <utility>
 using namespace mlir;
-using namespace lucid_frontend;
+using namespace lucid_frontend::toy;
 #include "Dialect.cpp.inc"
 #include "ToyInlineInterface.hpp"
 void ToyDialect::initialize() {
@@ -35,7 +35,7 @@ void ToyDialect::initialize() {
         #define GET_OP_LIST
         #include "Ops.cpp.inc"
     >();
-    addInterface<lucid_frontend::ToyInlinerInterface>();
+    addInterface<ToyInlinerInterface>();
 }
 void ConstantOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, double value) {
     auto dataType = RankedTensorType::get({}, odsBuilder.getF64Type());

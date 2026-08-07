@@ -24,7 +24,8 @@
 #include <utility>
 #include <vector>
 
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
 
 /// A variable type with shape information.
 struct VarType {
@@ -285,6 +286,7 @@ public:
   auto end() const { return functions.end(); }
 };
 
-} // namespace lucid_frontend
+}
+} // namespace lucid_frontend::toy
 
 #endif // LUCID_FRONTEND_AST_H

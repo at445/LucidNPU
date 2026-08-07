@@ -1,6 +1,6 @@
 #include "ASTDumper.h"
 
-namespace lucid_frontend {
+namespace lucid_frontend { namespace toy {
 
 void ASTDumper::Dump(ModuleAST *module) {
   curIndent = 0;
@@ -159,4 +159,4 @@ void ASTDumper::printType(std::optional<VarType *> type) {
   llvm::errs() << ">";
 }
 
-} // namespace lucid_frontend
+}} // namespace lucid_frontend::toy

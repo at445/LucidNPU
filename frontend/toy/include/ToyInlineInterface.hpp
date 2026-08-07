@@ -2,7 +2,8 @@
 #include "Ops.h"
 
 using namespace mlir;
-namespace lucid_frontend {
+namespace lucid_frontend { 
+namespace toy {
 /// This class defines the interface for handling inlining with Toy operations.
 /// We simplify inherit from the base interface class and override
 /// the necessary methods.
@@ -42,7 +43,7 @@ struct ToyInlinerInterface : public DialectInlinerInterface {
                             ValueRange valuesToRepl) const final 
     {
         // Only "toy.return" needs to be handled here.
-        auto returnOp = cast<lucid_frontend::ReturnOp>(op);
+        auto returnOp = cast<ReturnOp>(op);
 
         // Replace the values directly with the return operands.
         assert(returnOp.getNumOperands() == valuesToRepl.size());
@@ -54,7 +55,7 @@ struct ToyInlinerInterface : public DialectInlinerInterface {
         OpBuilder &builder, Value input,
         Type resultType, Location conversionLoc) const final 
     {
-        return lucid_frontend::CastOp::create(builder, conversionLoc, resultType, input);
+        return CastOp::create(builder, conversionLoc, resultType, input);
     }
 };
-}
+}}
