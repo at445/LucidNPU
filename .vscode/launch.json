@@ -2,37 +2,41 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug lucid-toy",
+            "name": "Debug lucid-toy (GDB)",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/lucid-toy",
             "args": [
                 "${workspaceFolder}/frontend/toy/test/test.toy",
-                "--emit=toy"
+                "--emit=linalg"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build lucid-toy (Debug)",
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "visualizerFile": "${workspaceFolder}/.vscode/llvm-mlir.natvis",
             "stopAtEntry": true,
             "externalConsole": false,
             "logging": {
-                "engineLogging": true,
-                "trace": true,
-                "traceResponse": true
+                "engineLogging": false,
+                "trace": false
             },
             "setupCommands": [
                 {
-                    "text": "set debuginfod enabled off",
+                    "text": "set print pretty on",
                     "ignoreFailures": true
                 },
                 {
-                    "text": "-enable-pretty-printing",
+                    "text": "handle SIGPIPE nostop noprint",
                     "ignoreFailures": true
+                },
+                {
+                    "text": "source ${env:HOME}/llvm-project/llvm/utils/gdb-scripts/prettyprinters.py",
+                    "ignoreFailures": false
                 },
                 {
                     "text": "source ${env:HOME}/llvm-project/mlir/utils/gdb-scripts/prettyprinters.py",
-                    "ignoreFailures": true
+                    "ignoreFailures": false
                 }
             ]
         }

@@ -1,0 +1,23 @@
+# RUN: lucid-toy %s -emit=linalg 2>&1 | FileCheck %s
+#
+# ReshapeOpLowering: pure expand path. The input dim splits into contiguous
+# output dims (6 -> 2x3), so getReassociationIndicesForReshape succeeds and
+# the reshape lowers to a single tensor.expand_shape.
+# The reshape input is produced by `a + a` (non-constant), otherwise the
+# inliner's canonicalization folds reshape(constant) before this lowering.
+
+def main() {
+  var a<6> = [1, 2, 3, 4, 5, 6];
+  var t = a + a;
+  var m<2, 3> = t;
+  print(m);
+}
+
+# CHECK: module {
+# CHECK: func.func @main()
+# CHECK: %[[SUM:.*]] = linalg.add {{.*}} -> tensor<6xf64>
+# CHECK-NEXT: %[[EXPANDED:.*]] = tensor.expand_shape %[[SUM]] {{\[\[0, 1\]\]}} output_shape [2, 3] : tensor<6xf64> into tensor<2x3xf64>
+# CHECK-NEXT: toy.print %[[EXPANDED]] : tensor<2x3xf64>
+# CHECK-NOT: toy.reshape
+# CHECK-NOT: error:
+# CHECK: }

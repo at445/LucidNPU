@@ -1,0 +1,48 @@
+# RUN: lucid-toy %s -emit=linalg 2>&1 | FileCheck %s
+#
+# SubOpLowering / MulOpLowering / DivOpLowering: each toy elementwise binary
+# op lowers to the matching linalg named op in destination-passing style —
+# a tensor.empty init as the `outs` operand and the two inputs as `ins`.
+# Exercises both ranked (2x2) and 0-d (scalar) tensor shapes.
+
+def main() {
+  var a<2, 2> = [1, 2, 3, 4];
+  var b<2, 2> = [5, 6, 7, 8];
+  print(a - b);
+  print(a * b);
+  print(a / b);
+
+  var x = 6;
+  var y = 3;
+  print(x - y);
+  print(x * y);
+  print(x / y);
+}
+
+# CHECK: module {
+# CHECK: func.func @main()
+# CHECK: %[[A:.*]] = arith.constant {{.*}} : tensor<2x2xf64>
+# CHECK: %[[B:.*]] = arith.constant {{.*}} : tensor<2x2xf64>
+# CHECK: %[[INIT_SUB:.*]] = tensor.empty() : tensor<2x2xf64>
+# CHECK-NEXT: %[[SUB:.*]] = linalg.sub ins(%[[A]], %[[B]] : tensor<2x2xf64>, tensor<2x2xf64>) outs(%[[INIT_SUB]] : tensor<2x2xf64>) -> tensor<2x2xf64>
+# CHECK-NEXT: toy.print %[[SUB]] : tensor<2x2xf64>
+# CHECK-NEXT: %[[INIT_MUL:.*]] = tensor.empty() : tensor<2x2xf64>
+# CHECK-NEXT: %[[MUL:.*]] = linalg.mul ins(%[[A]], %[[B]] : tensor<2x2xf64>, tensor<2x2xf64>) outs(%[[INIT_MUL]] : tensor<2x2xf64>) -> tensor<2x2xf64>
+# CHECK-NEXT: toy.print %[[MUL]] : tensor<2x2xf64>
+# CHECK-NEXT: %[[INIT_DIV:.*]] = tensor.empty() : tensor<2x2xf64>
+# CHECK-NEXT: %[[DIV:.*]] = linalg.div ins(%[[A]], %[[B]] : tensor<2x2xf64>, tensor<2x2xf64>) outs(%[[INIT_DIV]] : tensor<2x2xf64>) -> tensor<2x2xf64>
+# CHECK-NEXT: toy.print %[[DIV]] : tensor<2x2xf64>
+# CHECK: %[[INIT_SUB_S:.*]] = tensor.empty() : tensor<f64>
+# CHECK-NEXT: %[[SUB_S:.*]] = linalg.sub ins(%{{.*}}, %{{.*}} : tensor<f64>, tensor<f64>) outs(%[[INIT_SUB_S]] : tensor<f64>) -> tensor<f64>
+# CHECK-NEXT: toy.print %[[SUB_S]] : tensor<f64>
+# CHECK-NEXT: %[[INIT_MUL_S:.*]] = tensor.empty() : tensor<f64>
+# CHECK-NEXT: %[[MUL_S:.*]] = linalg.mul ins(%{{.*}}, %{{.*}} : tensor<f64>, tensor<f64>) outs(%[[INIT_MUL_S]] : tensor<f64>) -> tensor<f64>
+# CHECK-NEXT: toy.print %[[MUL_S]] : tensor<f64>
+# CHECK-NEXT: %[[INIT_DIV_S:.*]] = tensor.empty() : tensor<f64>
+# CHECK-NEXT: %[[DIV_S:.*]] = linalg.div ins(%{{.*}}, %{{.*}} : tensor<f64>, tensor<f64>) outs(%[[INIT_DIV_S]] : tensor<f64>) -> tensor<f64>
+# CHECK-NEXT: toy.print %[[DIV_S]] : tensor<f64>
+# CHECK-NOT: toy.sub
+# CHECK-NOT: toy.mul
+# CHECK-NOT: toy.div
+# CHECK-NOT: error:
+# CHECK: }

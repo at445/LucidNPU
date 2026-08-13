@@ -66,6 +66,8 @@ if(FILECHECK_EXECUTABLE)
   add_lucid_c_suite(AffineMLIRSuite "-emit=affine" affine/no-opt)
   # Affine MLIR with optimizations: loop fusion + scalar replacement
   add_lucid_c_suite(AffineMLIROptSuite "-emit=affine -opt" affine/opt)
+  # Linalg MLIR: toy ops lowered to linalg + tensor dialects
+  add_lucid_c_suite(LinalgMLIRSuite -emit=linalg linalg)
   # LLVM MLIR: reserved for future
   # add_lucid_c_suite(LLVMMLIRSuite -emit=llvm-mlir llvm-mlir)
   # Error / negative tests

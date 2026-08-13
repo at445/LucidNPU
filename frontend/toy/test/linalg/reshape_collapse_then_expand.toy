@@ -1,0 +1,24 @@
+# RUN: lucid-toy %s -emit=linalg 2>&1 | FileCheck %s
+#
+# ReshapeOpLowering: collapse-then-expand path (getCollapseUnionPoint).
+# 2x6 -> 3x4 shares no divisible dim boundaries, so the reshape first
+# collapses to the flattened union 12, then expands 12 -> 3x4.
+# The reshape input is produced by `a + a` (non-constant), otherwise the
+# inliner's canonicalization folds reshape(constant) before this lowering.
+
+def main() {
+  var a<2, 6> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  var t = a + a;
+  var r<3, 4> = t;
+  print(r);
+}
+
+# CHECK: module {
+# CHECK: func.func @main()
+# CHECK: %[[SUM:.*]] = linalg.add {{.*}} -> tensor<2x6xf64>
+# CHECK-NEXT: %[[COLLAPSED:.*]] = tensor.collapse_shape %[[SUM]] {{\[\[0, 1\]\]}} : tensor<2x6xf64> into tensor<12xf64>
+# CHECK-NEXT: %[[EXPANDED:.*]] = tensor.expand_shape %[[COLLAPSED]] {{\[\[0, 1\]\]}} output_shape [3, 4] : tensor<12xf64> into tensor<3x4xf64>
+# CHECK-NEXT: toy.print %[[EXPANDED]] : tensor<3x4xf64>
+# CHECK-NOT: toy.reshape
+# CHECK-NOT: error:
+# CHECK: }

@@ -1,5 +1,6 @@
 
 #include "Ops.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -25,6 +26,8 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LogicalResult.h"
 #include <algorithm>
 #include <cstdint>
@@ -33,6 +36,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <utility>
 using namespace ::mlir;
 using namespace lucid_frontend::toy;
@@ -118,40 +122,168 @@ struct ReshapeOpLowering : public OpConversionPattern<ReshapeOp> {
     LogicalResult
     matchAndRewrite(ReshapeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
-        auto inputShape = llvm::cast<TensorType>(op->getOperand(0).getType());
-        auto outputShape = op.getResult().getType();
-        if(!inputShape) {
+        auto inTyp = llvm::cast<TensorType>(op->getOperand(0).getType());
+        auto outTyp = op.getResult().getType();
+        if(!inTyp) {
             return rewriter.notifyMatchFailure(op, [op](Diagnostic &diag) {
                 diag << "type inllegl" << op->getOperand(0).getType();
             });
         }
-        if (inputShape == outputShape) {
+        
+        if (inTyp == outTyp) {
             rewriter.replaceOp(op, adaptor.getInput());
             return mlir::success();
         }
 
-        bool aligment = false;
+        auto reassIndices = getReassociationIndicesForReshape(inTyp, outTyp);
+        // can be converted to an expand or a collapse
+        if (reassIndices.has_value()) {
+            if (inTyp.getRank() > outTyp.getRank()) {
+                rewriter.replaceOpWithNewOp<tensor::CollapseShapeOp>(
+                    op, outTyp, adaptor.getInput(), reassIndices.value());
+                
+            } else {
+                rewriter.replaceOpWithNewOp<tensor::ExpandShapeOp>(
+                    op, outTyp, adaptor.getInput(), reassIndices.value());
+            }
+            return mlir::success();
+        }
+
+        auto expandIndices = getExpandUnionPoint(inTyp.getShape(), outTyp.getShape());
+        // can be converted to an expand and then a collapse
+        if (expandIndices.has_value()) {
+            auto boundingType = mlir::RankedTensorType::get(expandIndices->shape, rewriter.getF64Type());
+            auto expandOp = tensor::ExpandShapeOp::create(rewriter, op->getLoc(), 
+            boundingType, adaptor.getInput(), expandIndices->srcReassociation.value());
+            auto collapseOp = tensor::CollapseShapeOp::create(rewriter, op->getLoc(),
+            outTyp, expandOp->getResult(0), expandIndices->targetReassociation.value());
+            rewriter.replaceOp(op, collapseOp);
+            return mlir::success();
+        }
+
+        auto unionPoint = getCollapseUnionPoint(inTyp.getShape(), outTyp.getShape());
+        if (!unionPoint.has_value()) {
+            return rewriter.notifyMatchFailure(op, 
+                "The total number of output and input elements does not match. ");
+        } else {
+            auto boundingType = mlir::RankedTensorType::get(unionPoint->shape, rewriter.getF64Type());
+            auto collapseOp = tensor::CollapseShapeOp::create(rewriter, op->getLoc(), 
+            boundingType, adaptor.getInput(), unionPoint->srcReassociation.value());
+            auto expandOp = tensor::ExpandShapeOp::create(rewriter, op.getLoc(),
+            outTyp, collapseOp.getResult(), unionPoint->targetReassociation.value());
+            rewriter.replaceOp(op, expandOp);
+            return mlir::success();
+        }     
+    }
+private:
+    struct expandResult {
+        std::optional<SmallVector<ReassociationIndices>> srcReassociation;
+        llvm::SmallVector<int64_t, 4> shape;
+        std::optional<SmallVector<ReassociationIndices>> targetReassociation;
+        expandResult() : srcReassociation({}), targetReassociation({}) {};
+    };
+
+    std::optional<struct expandResult>
+    getExpandUnionPoint(llvm::ArrayRef<int64_t> iShape, llvm::ArrayRef<int64_t> jShape) const {
+        llvm::SmallVector<int64_t, 4> iTemp(iShape);
+        llvm::SmallVector<int64_t, 4> jTemp(jShape);
+        struct expandResult ret;
+        int64_t i = 0, j = 0;
+        while (i < iTemp.size() && j < jTemp.size()) {
+            if (iTemp[i] == jTemp[j]) {
+                ret.shape.push_back(iTemp[i]);
+                i++;
+                j++;
+            } else if (iTemp[i] > jTemp[j] && iTemp[i] % jTemp[j] == 0) {
+                ret.shape.push_back(jTemp[j]);
+                iTemp[i] = iTemp[i] / jTemp[j];
+                j++;
+                
+            } else if (iTemp[i] < jTemp[j] && jTemp[j] % iTemp[i] == 0) {
+                ret.shape.push_back(iTemp[i]);
+                jTemp[j] =  jTemp[j] / iTemp[i];
+                i++;
+            } else {
+                return {};
+            }
+        }
+
+        while (i < iTemp.size() && iTemp[i] == 1) {
+            ret.shape.push_back(iTemp[i]);
+            i++;
+        }
+        while (j < jTemp.size() && jTemp[j] == 1) {
+            ret.shape.push_back(jTemp[j]);
+            j++;
+        }
+        if (i != iTemp.size() || j != jTemp.size()) {
+            return {};
+        }
+
+        ret.srcReassociation = computeReassociation(iShape, ret.shape);
+        ret.targetReassociation = computeReassociation(jShape, ret.shape);
+        
+        return ret;
+    }
+
+    static SmallVector<ReassociationIndices>
+    computeReassociation(ArrayRef<int64_t> lowDim, ArrayRef<int64_t> highDim) {
+        int64_t i = 0, j = 0;
+        SmallVector<ReassociationIndices> ret;
+        while (i < lowDim.size() && j < highDim.size()) {
+            ReassociationIndices group;
+            if (lowDim[i] == highDim[j]) {
+                group.push_back(j);
+                i++;
+                j++;
+            } else if (lowDim[i] > highDim[j]) {
+                int product = 1;
+                while (j < highDim.size() && (product < lowDim[i])) {
+                    group.push_back(j);
+                    product = product * highDim[j];
+                    j++;
+                }
+                i++;
+            } else { // cannot be here
+                llvm::llvm_unreachable_internal("The total size of the dim corresponding to the low-dim array \
+                    should be greater than or equal to that of the high-dim array.");
+            }
+            ret.push_back(group);
+        }
+
+        while (j < highDim.size() && highDim[j] == 1) {
+            ret.back().push_back(j);
+            j++;
+        }
+        return ret;
+    }
+
+    std::optional<struct expandResult>
+    getCollapseUnionPoint(llvm::ArrayRef<int64_t> iShape, llvm::ArrayRef<int64_t> jShape) const
+    {
         int i = 0, j = 0;
         int64_t iMux = 1, jMux = 1;
-        // 2 x 3 x 3 x 3
-        auto iShape = inputShape.getShape();
-        // 6 x 9
-        auto jShape = outputShape.getShape();
-        std::deque<std::pair<int, int>> ret;
-        // iMux = 6 jMux = 54 i = 2 j = 2 iShape.size() = 4 jShape.size() = 2
-        // ret = {2,1} 
+        struct expandResult ret;
         while (i < iShape.size() && j < jShape.size()) {
             if (iMux >= jMux) {
                 jMux = jMux * jShape[j];
-                j++; 
+                j++;
             } else { 
                 iMux = iMux * iShape[i];
-                i++; 
+                i++;
             } 
             if (iMux == jMux) {
-                ret.push_back({i, j}); 
+                ret.shape.push_back(iMux);
+                // comsume the following element 1 greedly
+                while (i < iShape.size() && iShape[i] == 1 ) i++;
+                while (j < jShape.size() && jShape[j] == 1 ) j++;
+                // reset the accumlate multiply result
+                iMux = 1;
+                jMux = 1;
             }
         }
+
+        // the canditate element is not blanced from now on
         if (j == jShape.size()) {
             while(i < iShape.size()) {
                 iMux = iMux * iShape[i++];
@@ -163,18 +295,77 @@ struct ReshapeOpLowering : public OpConversionPattern<ReshapeOp> {
             }
         }
         if (iMux == jMux) {
-            ret.push_back({i, j}); 
-        } else {
-            return rewriter.notifyMatchFailure(op, [op](Diagnostic &diag) {
-                diag << "type inlegel, rhs: " << op->getOperand(0).getType() << "   result: " <<  op->getResult().getType();
-            });
+            ret.shape.push_back(iMux);
+        } 
+        else { // if not match, that means an error
+            return {};
         }
 
-
-        return mlir::success();
+        ret.srcReassociation = computeReassociation(ret.shape, iShape);
+        ret.targetReassociation = computeReassociation(ret.shape, jShape);
+        return ret;
     }
 };
 
+// linalg named elementwise ops are destination-passing style: the operands
+// are split into `inputs` and `outputs` segments (AttrSizedOperandSegments)
+// and the result is written into an `outputs` init tensor. They must be built
+// with the (resultTypes, inputs, outputs) builder so that both
+// `operandSegmentSizes` and the region body are populated; the generic
+// (resultTypes, operands) builder does neither and fails verification with
+// "operand count does not match the total size in operandSegmentSizes".
+template <typename LinalgOpTy>
+static LogicalResult lowerElementwiseToLinalg(Operation *op,
+                                              ValueRange operands,
+                                              PatternRewriter &rewriter) {
+    auto resultType = llvm::dyn_cast<RankedTensorType>(op->getResult(0).getType());
+    if (!resultType) {
+        return rewriter.notifyMatchFailure(op, "expected ranked tensor result");
+    }
+    auto init = tensor::EmptyOp::create(rewriter, op->getLoc(),
+                                        resultType.getShape(),
+                                        resultType.getElementType());
+    rewriter.replaceOpWithNewOp<LinalgOpTy>(op, resultType, operands,
+                                            ValueRange{init.getResult()});
+    return success();
+}
+
+struct AddOpLowering : public OpConversionPattern<AddOp> {
+    using OpConversionPattern<AddOp>::OpConversionPattern;
+    LogicalResult
+    matchAndRewrite(AddOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::AddOp>(op, adaptor.getOperands(),
+                                                       rewriter);
+    }
+};
+struct SubOpLowering : public OpRewritePattern<SubOp> {
+    using OpRewritePattern<SubOp>::OpRewritePattern;
+
+    LogicalResult matchAndRewrite(SubOp op,
+                                    PatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::SubOp>(op, op->getOperands(),
+                                                       rewriter);
+    }
+};
+struct MulOpLowering : public OpRewritePattern<MulOp> {
+    using OpRewritePattern<MulOp>::OpRewritePattern;
+
+    LogicalResult matchAndRewrite(MulOp op,
+                                    PatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::MulOp>(op, op->getOperands(),
+                                                       rewriter);
+    }
+};
+struct DivOpLowering : public OpRewritePattern<DivOp> {
+    using OpRewritePattern<DivOp>::OpRewritePattern;
+
+    LogicalResult matchAndRewrite(DivOp op,
+                                    PatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::DivOp>(op, op->getOperands(),
+                                                       rewriter);
+    }
+};
 
 }
 
@@ -195,7 +386,7 @@ public:
         ConversionTarget target(getContext());
         // tell the convert pass, the following dialect won't be needed to lowering
         target.addLegalDialect<linalg::LinalgDialect, func::FuncDialect,
-        arith::ArithDialect, BuiltinDialect>();
+        arith::ArithDialect, BuiltinDialect, tensor::TensorDialect>();
 
         target.addIllegalDialect<ToyDialect>();
         target.addLegalOp<PrintOp>();
@@ -204,7 +395,8 @@ public:
 
         patterns.add<ConstantOpLowering, ReturnOpLowering, FuncOpLowering,
                     TransposeOpLowering, ReshapeOpLowering,
-                    MatrixMulOpLowering>(context);
+                    MatrixMulOpLowering, AddOpLowering, SubOpLowering,
+                    MulOpLowering, DivOpLowering>(context);
 
         if (llvm::failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
             signalPassFailure();

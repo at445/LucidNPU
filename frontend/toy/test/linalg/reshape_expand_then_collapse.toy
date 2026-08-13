@@ -1,0 +1,25 @@
+# RUN: lucid-toy %s -emit=linalg 2>&1 | FileCheck %s
+#
+# ReshapeOpLowering: expand-then-collapse path (getExpandUnionPoint).
+# 2x6 -> 4x3 can be neither a pure expand nor a pure collapse (equal rank),
+# but the shapes have the "zippered" union 2x2x3: expand 2x6 -> 2x2x3, then
+# collapse 2x2x3 -> 4x3.
+# The reshape input is produced by `a + a` (non-constant), otherwise the
+# inliner's canonicalization folds reshape(constant) before this lowering.
+
+def main() {
+  var a<2, 6> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  var t = a + a;
+  var r<4, 3> = t;
+  print(r);
+}
+
+# CHECK: module {
+# CHECK: func.func @main()
+# CHECK: %[[SUM:.*]] = linalg.add {{.*}} -> tensor<2x6xf64>
+# CHECK-NEXT: %[[EXPANDED:.*]] = tensor.expand_shape %[[SUM]] {{\[\[0\], \[1, 2\]\]}} output_shape [2, 2, 3] : tensor<2x6xf64> into tensor<2x2x3xf64>
+# CHECK-NEXT: %[[COLLAPSED:.*]] = tensor.collapse_shape %[[EXPANDED]] {{\[\[0, 1\], \[2\]\]}} : tensor<2x2x3xf64> into tensor<4x3xf64>
+# CHECK-NEXT: toy.print %[[COLLAPSED]] : tensor<4x3xf64>
+# CHECK-NOT: toy.reshape
+# CHECK-NOT: error:
+# CHECK: }
