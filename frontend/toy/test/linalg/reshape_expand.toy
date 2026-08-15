@@ -17,7 +17,8 @@ def main() {
 # CHECK: func.func @main()
 # CHECK: %[[SUM:.*]] = linalg.add {{.*}} -> tensor<6xf64>
 # CHECK-NEXT: %[[EXPANDED:.*]] = tensor.expand_shape %[[SUM]] {{\[\[0, 1\]\]}} output_shape [2, 3] : tensor<6xf64> into tensor<2x3xf64>
-# CHECK-NEXT: toy.print %[[EXPANDED]] : tensor<2x3xf64>
+# CHECK-NEXT: %[[CAST:.*]] = tensor.cast %[[EXPANDED]] : tensor<2x3xf64> to tensor<?x?xf64>
+# CHECK-NEXT: call @lucid_print_2d(%[[CAST]]) : (tensor<?x?xf64>) -> ()
 # CHECK-NOT: toy.reshape
 # CHECK-NOT: error:
 # CHECK: }

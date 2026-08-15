@@ -1,6 +1,7 @@
 
 #include "Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -37,6 +38,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <string>
 #include <utility>
 using namespace ::mlir;
 using namespace lucid_frontend::toy;
@@ -56,12 +58,98 @@ struct ReturnOpLowering: public OpRewritePattern<ReturnOp> {
     }
 };
 
+class PrintOpLowering : public OpConversionPattern<PrintOp> {
+    using OpConversionPattern<PrintOp>::OpConversionPattern;
+public:
+    LogicalResult matchAndRewrite(PrintOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final 
+    {
+        auto inputType = llvm::dyn_cast<RankedTensorType>(op.getInput().getType());
+        if (!inputType) {
+            return rewriter.notifyMatchFailure(op, "expected ranked tensor input");
+        }
+        
+        ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+        auto loc = op->getLoc();
+
+        // 1. Get-or-insert the runtime print prototype for this rank, e.g.
+        //    func.func @lucid_print_2d(tensor<?x?xf64>) -> ()
+        auto printRef = getOrInsertPrintFuncOp(rewriter, inputType.getRank(),
+                                               parentModule);
+
+        // 2. Cast the static-shape input to the prototype's dynamic shape and
+        //    call it. The call produces no results; the toy.print is erased.
+        Value input = adaptor.getInput();
+        auto dynType = getDynamicTensorType(rewriter.getContext(),
+                                            inputType.getRank());
+        if (input.getType() != dynType) {
+            // create an tensor.cast op if not match
+            input = tensor::CastOp::create(rewriter, loc, dynType, input);
+        }
+        func::CallOp::create(rewriter, loc, printRef, TypeRange{}, input);
+        rewriter.eraseOp(op);
+        return mlir::success();
+    }
+
+private:
+    static RankedTensorType getDynamicTensorType(MLIRContext *context,
+                                                 int64_t rank) {
+        return RankedTensorType::get(
+            SmallVector<int64_t>(rank, ShapedType::kDynamic),
+            Float64Type::get(context));
+    }
+
+    /// Get-or-insert the runtime print declaration `@lucid_print_<rank>d`
+    /// on the parent module. func::FuncOp carries the Symbol trait, so the
+    /// module's symbol table sees the new symbol as soon as it is created.
+    FlatSymbolRefAttr getOrInsertPrintFuncOp(PatternRewriter &rewriter,
+                                             int64_t rank, ModuleOp module) const {
+        std::string printName = "lucid_print_" + std::to_string(rank) + "d";
+        auto context = module.getContext();
+        if (module.lookupSymbol<func::FuncOp>(printName)) {
+            return SymbolRefAttr::get(context, printName);
+        }
+
+        // Insert the print declaration into the body of the parent module.
+        PatternRewriter::InsertionGuard guard(rewriter);
+        rewriter.setInsertionPointToStart(module.getBody());
+        auto funcType = FunctionType::get(context,
+                                          {getDynamicTensorType(context, rank)},
+                                          /*results=*/{});
+        auto funcOp = func::FuncOp::create(rewriter, module->getLoc(),
+                                           printName, funcType);
+        // A bodiless func.func is a declaration and must not be public.
+        funcOp.setVisibility(SymbolTable::Visibility::Private);
+        return SymbolRefAttr::get(context, printName);
+    }
+};
+
 class TransposeOpLowering : public OpConversionPattern<TransposeOp> {
     using OpConversionPattern<TransposeOp>::OpConversionPattern;
 
     LogicalResult matchAndRewrite(TransposeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final 
     {
+        auto resultType = llvm::dyn_cast<RankedTensorType>(op->getResult(0).getType());
+        if (!resultType) {
+            return rewriter.notifyMatchFailure(op, "expected ranked tensor result");
+        }
+
+        auto empty = tensor::EmptyOp::create(rewriter, op->getLoc(),
+                                        resultType.getShape(),
+                                        resultType.getElementType());
+
+
+        int64_t rank = resultType.getRank();
+        SmallVector<int64_t> permutation;
+        llvm::append_range(permutation, llvm::seq<int64_t>(0, rank));
+        if (rank > 1) {
+            std::swap(permutation[rank - 1], permutation[rank - 2]);
+        }
+
+        auto transpose = linalg::TransposeOp::create(
+            rewriter, op.getLoc(), adaptor.getInput(), empty, permutation);
+        rewriter.replaceOp(op, transpose);
         return mlir::success();
     }
 };
@@ -73,6 +161,22 @@ class MatrixMulOpLowering : public OpConversionPattern<MatrixMulOp> {
     LogicalResult matchAndRewrite(MatrixMulOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final 
     {
+        auto resultType = llvm::dyn_cast<RankedTensorType>(op->getResult(0).getType());
+        if (!resultType) {
+            return rewriter.notifyMatchFailure(op, "expected ranked tensor result");
+        }
+ 
+        auto attr = rewriter.getZeroAttr(resultType.getElementType());
+        Value fillValue = arith::ConstantOp::create(
+            rewriter, op->getLoc(), resultType.getElementType(), attr);
+        auto empty = tensor::EmptyOp::create(rewriter, op->getLoc(),
+                                        resultType.getShape(),
+                                        resultType.getElementType());
+        auto filled =  linalg::FillOp::create(rewriter, op->getLoc(), fillValue, empty->getResults());
+
+        auto matmul = linalg::MatmulOp::create(rewriter, op->getLoc(), adaptor.getOperands(), filled->getResults());
+            
+        rewriter.replaceOp(op, matmul);
         return mlir::success();
     }
 };
@@ -272,7 +376,7 @@ private:
                 iMux = iMux * iShape[i];
                 i++;
             } 
-            if (iMux == jMux) {
+            if (iMux == jMux && iMux != 1) {
                 ret.shape.push_back(iMux);
                 // comsume the following element 1 greedly
                 while (i < iShape.size() && iShape[i] == 1 ) i++;
@@ -294,11 +398,14 @@ private:
                 jMux = jMux * jShape[j++];
             }
         }
-        if (iMux == jMux) {
-            ret.shape.push_back(iMux);
-        } 
-        else { // if not match, that means an error
+
+        if (iMux != jMux) { // if not match, that means an error
             return {};
+        }
+        // a leftover balanced 1 is not a real segment.
+        // size-1 dims are absorbed into the adjacent reassociation groups instead.
+        if (iMux != 1) {
+            ret.shape.push_back(iMux);
         }
 
         ret.srcReassociation = computeReassociation(ret.shape, iShape);
@@ -306,6 +413,7 @@ private:
         return ret;
     }
 };
+
 
 // linalg named elementwise ops are destination-passing style: the operands
 // are split into `inputs` and `outputs` segments (AttrSizedOperandSegments)
@@ -339,30 +447,33 @@ struct AddOpLowering : public OpConversionPattern<AddOp> {
                                                        rewriter);
     }
 };
-struct SubOpLowering : public OpRewritePattern<SubOp> {
-    using OpRewritePattern<SubOp>::OpRewritePattern;
+struct SubOpLowering : public OpConversionPattern<SubOp> {
+    using OpConversionPattern<SubOp>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(SubOp op,
-                                    PatternRewriter &rewriter) const final {
-        return lowerElementwiseToLinalg<linalg::SubOp>(op, op->getOperands(),
+    LogicalResult
+    matchAndRewrite(SubOp op, OpAdaptor adaptor,
+                    ConversionPatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::SubOp>(op, adaptor.getOperands(),
                                                        rewriter);
     }
 };
-struct MulOpLowering : public OpRewritePattern<MulOp> {
-    using OpRewritePattern<MulOp>::OpRewritePattern;
+struct MulOpLowering : public OpConversionPattern<MulOp> {
+    using OpConversionPattern<MulOp>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(MulOp op,
-                                    PatternRewriter &rewriter) const final {
-        return lowerElementwiseToLinalg<linalg::MulOp>(op, op->getOperands(),
+    LogicalResult 
+    matchAndRewrite(MulOp op, OpAdaptor adaptor,
+                    ConversionPatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::MulOp>(op, adaptor.getOperands(),
                                                        rewriter);
     }
 };
-struct DivOpLowering : public OpRewritePattern<DivOp> {
-    using OpRewritePattern<DivOp>::OpRewritePattern;
+struct DivOpLowering : public OpConversionPattern<DivOp> {
+    using OpConversionPattern<DivOp>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(DivOp op,
-                                    PatternRewriter &rewriter) const final {
-        return lowerElementwiseToLinalg<linalg::DivOp>(op, op->getOperands(),
+    LogicalResult 
+    matchAndRewrite(DivOp op, OpAdaptor adaptor,
+                    ConversionPatternRewriter &rewriter) const final {
+        return lowerElementwiseToLinalg<linalg::DivOp>(op, adaptor.getOperands(),
                                                        rewriter);
     }
 };
@@ -389,14 +500,13 @@ public:
         arith::ArithDialect, BuiltinDialect, tensor::TensorDialect>();
 
         target.addIllegalDialect<ToyDialect>();
-        target.addLegalOp<PrintOp>();
         auto context = &getContext();
         RewritePatternSet patterns(context);
 
         patterns.add<ConstantOpLowering, ReturnOpLowering, FuncOpLowering,
                     TransposeOpLowering, ReshapeOpLowering,
                     MatrixMulOpLowering, AddOpLowering, SubOpLowering,
-                    MulOpLowering, DivOpLowering>(context);
+                    MulOpLowering, DivOpLowering, PrintOpLowering>(context);
 
         if (llvm::failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
             signalPassFailure();

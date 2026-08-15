@@ -19,7 +19,8 @@ def main() {
 # CHECK: %[[SUM:.*]] = linalg.add {{.*}} -> tensor<1x6xf64>
 # CHECK-NEXT: %[[EXPANDED:.*]] = tensor.expand_shape %[[SUM]] {{\[\[0\], \[1, 2\]\]}} output_shape [1, 6, 1] : tensor<1x6xf64> into tensor<1x6x1xf64>
 # CHECK-NEXT: %[[COLLAPSED:.*]] = tensor.collapse_shape %[[EXPANDED]] {{\[\[0, 1\], \[2\]\]}} : tensor<1x6x1xf64> into tensor<6x1xf64>
-# CHECK-NEXT: toy.print %[[COLLAPSED]] : tensor<6x1xf64>
+# CHECK-NEXT: %[[CAST:.*]] = tensor.cast %[[COLLAPSED]] : tensor<6x1xf64> to tensor<?x?xf64>
+# CHECK-NEXT: call @lucid_print_2d(%[[CAST]]) : (tensor<?x?xf64>) -> ()
 # CHECK-NOT: toy.reshape
 # CHECK-NOT: error:
 # CHECK: }
